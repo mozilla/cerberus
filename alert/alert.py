@@ -34,14 +34,14 @@ def add_to_series(series, measure):
     else:
         series_it[dt] = numpy.array(measure["values"])
 
-def compare_histograms(s, regressions, histogram, path="", nr_ref_days=7):
+def compare_histograms(s, regressions, histogram, buckets, path="", nr_ref_days=7):
     if type(s) is dict:
         for filter in s:
             if type(filter) == datetime:
-                compare_histogram(s, regressions, histogram, path, nr_ref_days)
+                compare_histogram(s, regressions, histogram, buckets, path, nr_ref_days)
                 break
             else:
-                compare_histograms(s[filter], regressions, histogram, path + "/" + filter)
+                compare_histograms(s[filter], regressions, histogram, buckets, path + "/" + filter)
 
 
 def has_not_enough_data(hist):
@@ -92,7 +92,7 @@ def get_raw_histograms(comparisons):
 
     assert(False)
 
-def compare_histogram(s, regressions, histogram, path, nr_ref_days):
+def compare_histogram(s, regressions, histogram, buckets, path, nr_ref_days):
     # We want to check that the histogram of the current day and the ones of the
     # next "nr_future_days" days regress against the histograms of the past "nr_ref_days" days
     s = sorted(s.items(), key=lambda x: x[0])
@@ -116,11 +116,12 @@ def compare_histogram(s, regressions, histogram, path, nr_ref_days):
 
         if len(comparisons) == sum(map(lambda x: x != (None, None), comparisons)):
             logging.debug('Regression found for '+ histogram + dt.strftime(", %d/%m/%Y"))
-            regressions.append((dt, histogram, get_raw_histograms(comparisons)))
+            regressions.append((dt, histogram, buckets, get_raw_histograms(comparisons)))
 
 def process_file(filename, regressions):
     logging.debug("Processing " + filename)
     series = {}
+    buckets = []
 
     with open(filename) as f:
         measures = json.load(f)
@@ -131,15 +132,26 @@ def process_file(filename, regressions):
                 continue
 
             add_to_series(series, measure)
+            buckets = measure['buckets']
 
-        compare_histograms(series, regressions, os.path.basename(filename)[:-5])
+        compare_histograms(series, regressions, os.path.basename(filename)[:-5], buckets)
 
-def plot(histogram_name, raw_histograms):
+def plot(histogram_name, buckets, raw_histograms):
     hist, ref_hist = raw_histograms
-    pylab.plot(hist, label="Regression", color="red")
-    pylab.plot(ref_hist, label="Reference", color="blue")
+
+    pylab.figure(figsize=(len(buckets)/3, 10))
     pylab.legend(shadow=True)
     pylab.title(histogram_name)
+    pylab.xlabel("Bin")
+    pylab.ylabel("Normalized Weight")
+
+    pylab.plot(hist, label="Regression", color="red", linewidth=1.5)
+    pylab.plot(ref_hist, label="Reference", color="blue", linewidth=1.5)
+
+    pylab.xticks(range(0, len(buckets)))
+    locs, labels = pylab.xticks()
+    pylab.xticks(locs, buckets, rotation="45")
+
     pylab.savefig('plot.png', bbox_inches='tight')
 
 if __name__ == "__main__":
@@ -164,7 +176,7 @@ if __name__ == "__main__":
 
     # Print new regressions
     for regression in sorted(regressions, key=lambda x: x[0]):
-        dt, histogram, raw_histograms = regression
+        dt, histogram, buckets, raw_histograms = regression
         dt = dt.strftime("%d/%m/%Y")
 
         if dt in past_regressions and histogram in past_regressions[dt]:
@@ -172,7 +184,7 @@ if __name__ == "__main__":
         else:
             print 'Regression found for '+ histogram + ", " + dt + " [new]"
 
-            plot(histogram, raw_histograms)
+            plot(histogram, buckets, raw_histograms)
 
             if not dt in past_regressions:
                 past_regressions[dt] = {}
