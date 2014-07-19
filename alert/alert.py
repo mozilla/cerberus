@@ -7,15 +7,13 @@
 
 import json
 import numpy
-import scipy
-import scipy.stats
-import scipy.signal
-import scipy.spatial
 import cv2
 import sys
 import os
 import matplotlib.pyplot as plt
 import logging
+import json
+import pylab
 
 from time import mktime, strptime
 from datetime import datetime, timedelta
@@ -79,13 +77,20 @@ def compare_range(series, idx, range, nr_ref_days):
 
     if len(dists) > nr_ref_days/2 and dists[-1] > 0.12 and numpy.std(dists) <= 0.01:
         logging.debug("Suspicious difference found")
-        #plt.plot(hist)
-        #plt.plot(ref_hist)
-        #plt.show()
-        return True
+        return (hist, ref_hist)
     else:
         logging.debug("No suspicious difference found")
-        return False
+        return (None, None)
+
+def get_raw_histograms(comparisons):
+    hist = None
+    ref_hist = None
+
+    for h, r in comparisons:
+        if h is not None:
+            return (h, r)
+
+    assert(False)
 
 def compare_histogram(s, regressions, histogram, path, nr_ref_days):
     # We want to check that the histogram of the current day and the ones of the
@@ -109,9 +114,9 @@ def compare_histogram(s, regressions, histogram, path, nr_ref_days):
         for j in range(i, min(i + nr_future_days + 1, len(s))):
             comparisons.append(compare_range(s, j, ref_range, nr_ref_days))
 
-        if len(comparisons) == sum(comparisons):
+        if len(comparisons) == sum(map(lambda x: x != (None, None), comparisons)):
             logging.debug('Regression found for '+ histogram + dt.strftime(", %d/%m/%Y"))
-            regressions.append((dt, histogram))
+            regressions.append((dt, histogram, get_raw_histograms(comparisons)))
 
 def process_file(filename, regressions):
     logging.debug("Processing " + filename)
@@ -129,17 +134,53 @@ def process_file(filename, regressions):
 
         compare_histograms(series, regressions, os.path.basename(filename)[:-5])
 
+def plot(histogram_name, raw_histograms):
+    hist, ref_hist = raw_histograms
+    pylab.plot(hist, label="Regression", color="red")
+    pylab.plot(ref_hist, label="Reference", color="blue")
+    pylab.legend(shadow=True)
+    pylab.title(histogram_name)
+    pylab.savefig('plot.png', bbox_inches='tight')
+
 if __name__ == "__main__":
     regressions = []
 
     #logging.basicConfig(level=logging.DEBUG)
-    #process_file('./histograms/MEMORY_VSIZE_MAX_CONTIGUOUS.json', regressions)
+    #process_file('./histograms/FX_TAB_ANIM_ANY_FRAME_INTERVAL_MS.json', regressions)
 
+    # Process all histograms
     for subdir, dirs, files in os.walk('./histograms'):
         for file in files:
             if file.endswith(".json"):
                 process_file(subdir + "/" + file, regressions)
 
+    # Load past regressions
+    past_regressions = {}
+    try:
+        with open('regressions.json') as f:
+            past_regressions = json.load(f)
+    except:
+        pass
+
+    # Print new regressions
     for regression in sorted(regressions, key=lambda x: x[0]):
-        dt, histogram = regression
-        print 'Regression found for '+ histogram + dt.strftime(", %d/%m/%Y")
+        dt, histogram, raw_histograms = regression
+        dt = dt.strftime("%d/%m/%Y")
+
+        if dt in past_regressions and histogram in past_regressions[dt]:
+            print 'Regression found for '+ histogram + ", " + dt
+        else:
+            print 'Regression found for '+ histogram + ", " + dt + " [new]"
+
+            plot(histogram, raw_histograms)
+
+            if not dt in past_regressions:
+                past_regressions[dt] = {}
+
+            past_regressions[dt][histogram] = ""
+
+            # Send regression alert
+
+    # Store regressions found
+    with open('regressions.json', 'w') as f:
+        json.dump(past_regressions ,f)
