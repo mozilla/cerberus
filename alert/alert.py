@@ -140,13 +140,13 @@ def plot(histogram_name, buckets, raw_histograms):
     hist, ref_hist = raw_histograms
 
     pylab.figure(figsize=(len(buckets)/3, 10))
+
+    pylab.plot(hist, label="Regression", color="red")
+    pylab.plot(ref_hist, label="Reference", color="blue")
     pylab.legend(shadow=True)
     pylab.title(histogram_name)
     pylab.xlabel("Bin")
     pylab.ylabel("Normalized Weight")
-
-    pylab.plot(hist, label="Regression", color="red", linewidth=1.5)
-    pylab.plot(ref_hist, label="Reference", color="blue", linewidth=1.5)
 
     pylab.xticks(range(0, len(buckets)))
     locs, labels = pylab.xticks()
