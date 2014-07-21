@@ -5,18 +5,25 @@
 # Search for regression in a histogram dump directory produced by the
 # node exporter.
 
+import matplotlib
+matplotlib.use('Agg') # needed when X11 is not present
+import matplotlib.pyplot as plt
+
 import json
 import numpy
 import cv2
 import sys
 import os
-import matplotlib.pyplot as plt
 import logging
 import json
 import pylab
 
 from time import mktime, strptime
 from datetime import datetime, timedelta
+from mail import send_ses
+
+histograms = None
+plot_filename = "plot.png"
 
 def add_to_series(series, measure):
     conv = strptime(measure['date'][:10], "%Y-%m-%d")
@@ -152,7 +159,28 @@ def plot(histogram_name, buckets, raw_histograms):
     locs, labels = pylab.xticks()
     pylab.xticks(locs, buckets, rotation="45")
 
-    pylab.savefig('plot.png', bbox_inches='tight')
+    pylab.savefig(plot_filename, bbox_inches='tight')
+
+def mail_alert(histogram, date):
+    global histograms
+
+    if not histograms:
+        with open("Histograms.json") as f:
+            histograms = json.load(f)
+
+    alert_emails = "ra.vitillo@gmail.com"
+
+    if histogram in histograms:
+        alert_emails = ",".join(histograms[histogram]['alert_emails'])
+
+    body = "This alert was generated because the distribution of the histogram " + histogram +\
+           " has changed on the " + date + ". Please have a look at the attached plot."
+
+    #TODO remove once we are ready to ship
+    alert_emails = "ra.vitillo@gmail.com"
+    send_ses("telemetry-alerts@mozilla.com", "Histogram regression detected",
+             body, alert_emails, plot_filename)
+
 
 if __name__ == "__main__":
     regressions = []
@@ -192,6 +220,7 @@ if __name__ == "__main__":
             past_regressions[dt][histogram] = ""
 
             # Send regression alert
+            mail_alert(histogram, dt)
 
     # Store regressions found
     with open('regressions.json', 'w') as f:

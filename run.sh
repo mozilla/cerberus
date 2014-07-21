@@ -1,8 +1,5 @@
 #!/bin/bash
 
-cd exporter
-npm install
-cd ..
-
-node exporter/export.js
-python alert/alert.py 2>&1 | tee regressions
+(cd exporter; npm install) &&
+rm -rf ./histograms &&
+nodejs exporter/export.js && python alert/alert.py
