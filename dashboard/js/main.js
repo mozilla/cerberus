@@ -25,8 +25,8 @@ function displayRegressions(dates, data) {
 }
 
 function displayRegressionsForDate(date, regressions) {
+  displayDateHeader(date);
   Object.keys(regressions).forEach(function(value) {
-    displayDateHeader(date);
     displayRegression(value, regressions[value])
   });
 }
