@@ -17,13 +17,19 @@ import os
 import logging
 import json
 import pylab
+import os.path
+import argparse
 
 from time import mktime, strptime
 from datetime import datetime, timedelta
 from mail import send_ses
 
 histograms = None
-plot_filename = "plot.png"
+args = None
+
+PLOT_FILENAME = "plot.png"
+REGRESSION_FILENAME = "dashboard/regressions.json"
+HISTOGRAM_DB = "Histograms.json"
 
 def add_to_series(series, measure):
     conv = strptime(measure['date'][:10], "%Y-%m-%d")
@@ -159,14 +165,21 @@ def plot(histogram_name, buckets, raw_histograms):
     locs, labels = pylab.xticks()
     pylab.xticks(locs, buckets, rotation="45")
 
-    pylab.savefig(plot_filename, bbox_inches='tight')
+    pylab.savefig(PLOT_FILENAME, bbox_inches='tight')
 
 def mail_alert(histogram, date):
     global histograms
 
+    if args.dry_run:
+        return
+
     if not histograms:
-        with open("Histograms.json") as f:
-            histograms = json.load(f)
+        try:
+            with open("Histograms.json") as f:
+                histograms = json.load(f)
+        except:
+            logging.warning("Failure to find histogram descriptor file, sending all alerts to default destination.")
+            histograms = {}
 
     alert_emails = "ra.vitillo@gmail.com"
 
@@ -179,10 +192,9 @@ def mail_alert(histogram, date):
     #TODO remove once we are ready to ship
     alert_emails = "ra.vitillo@gmail.com"
     send_ses("telemetry-alerts@mozilla.com", "Histogram regression detected",
-             body, alert_emails, plot_filename)
+             body, alert_emails, PLOT_FILENAME)
 
-
-if __name__ == "__main__":
+def main():
     regressions = []
 
     #logging.basicConfig(level=logging.DEBUG)
@@ -197,7 +209,7 @@ if __name__ == "__main__":
     # Load past regressions
     past_regressions = {}
     try:
-        with open('regressions.json') as f:
+        with open(REGRESSION_FILENAME) as f:
             past_regressions = json.load(f)
     except:
         pass
@@ -205,7 +217,7 @@ if __name__ == "__main__":
     # Print new regressions
     for regression in sorted(regressions, key=lambda x: x[0]):
         dt, histogram, buckets, raw_histograms = regression
-        dt = dt.strftime("%d/%m/%Y")
+        dt = dt.isoformat()[:10]
 
         if dt in past_regressions and histogram in past_regressions[dt]:
             print 'Regression found for '+ histogram + ", " + dt
@@ -217,11 +229,24 @@ if __name__ == "__main__":
             if not dt in past_regressions:
                 past_regressions[dt] = {}
 
-            past_regressions[dt][histogram] = ""
+            descriptor = past_regressions[dt][histogram] = {}
+            descriptor["buckets"] = buckets
+            descriptor["regression"] = raw_histograms[0].tolist()
+            descriptor["reference"] = raw_histograms[1].tolist()
 
             # Send regression alert
             mail_alert(histogram, dt)
 
     # Store regressions found
-    with open('regressions.json', 'w') as f:
-        json.dump(past_regressions ,f)
+    with open(REGRESSION_FILENAME, 'w') as f:
+        json.dump(past_regressions ,f, indent=4)
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description="Desktop Browser Power benchmarking Utility",
+                                    formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+    parser.add_argument("-d", "--dry-run", help="Disable e-mail alerts", action="store_true", dest="dry_run")
+
+    parser.set_defaults(dry_run=False)
+    args = parser.parse_args()
+
+    main()
