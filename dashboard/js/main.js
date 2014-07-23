@@ -5,7 +5,7 @@ function loadRegressions() {
 function parseRegressions(data) {
   var dates = Object.keys(data).map(function(value, index) {
     return Date.parse(value);
-  }).sort();
+  }).sort().reverse();
 
   dates = dates.map(function(value, index) {
     return getFormattedDate(new Date(value));
@@ -46,6 +46,7 @@ function displayRegression(histogramName, regression) {
 
   new google.visualization.LineChart(container.last()[0]).
     draw(data, {curveType: 'function',
+                smoothLine: false,
                 title: histogramName,
                 height: 500,
                 colors: ['red', 'black']});
