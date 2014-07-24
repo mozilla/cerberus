@@ -42,7 +42,7 @@ function displayDateHeader(date) {
   $('#regressions').append('<div id="' + date + '"class="row">' +
                              '<div class="col-md-12">' +
                                '<h3 class="text-center" style="background:#FAFAFA; padding:20px"> ' +
-                                  'Distribution changes detected for the build-id ' + date +
+                                  'Distribution changes detected for build-id ' + date +
                                 '</h3>' +
                               '</div>' +
                             '</div>');
