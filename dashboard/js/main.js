@@ -1,3 +1,5 @@
+lastNightly = null;
+
 function loadRegressions() {
   $.getJSON("./regressions.json", null, parseRegressions);
 }
@@ -27,40 +29,70 @@ function displayRegressions(dates, data) {
 function displayRegressionsForDate(date, regressions) {
   displayDateHeader(date);
   Object.keys(regressions).forEach(function(value) {
-    displayRegression(value, regressions[value])
+    displayRegression(date, value, regressions[value])
   });
 }
 
 function displayDateHeader(date) {
-  $('#regressions').append('<div class="row"><div class="col-md-12>"><h2 class="text-center">' + date + '</h2></div></div>');
+  $('#regressions').append('<div id="' + date + '"class="row"><div class="col-md-12">' +
+                           '<h3 class="text-center" style="background:#FAFAFA; padding:20px"> ' +
+                           'Distribution changes detected on the ' + date + '</h3></div></div>');
+  $('#date-selector').append('<li><a href="#' + date + '">' + date + '</a></li');
 }
 
-var cnt = 0;
-
-function displayRegression(histogramName, regression) {
-  data = convertData(regression["buckets"], regression["regression"], regression["reference"]);
+function displayRegression(date, histogramName, regression) {
+  data = convertData(date, regression["buckets"], regression["regression"], regression["reference"]);
   data = google.visualization.arrayToDataTable(data);
 
-  var container = $('#regressions').append('<div class="row"><div class="col-md-12" id="graph-"' + cnt + '></div></div>');
-  container = $('.col-md-12', container);
+  $('#regressions').append('<div class="row"><div class="col-md-12 title" id="graph-">' +
+                           '<a href="http://telemetry.mozilla.org/#filter=nightly%2F' +
+                           lastNightly + '%2F' + histogramName + '">' +
+                           '<h5 class="text-center">' + histogramName + '</h5></a></div></div>');
+
+  var container = $('#regressions').append('<div class="row"><div class="col-md-12 graph" id="graph-"></div></div>');
+  container = $('.graph', container);
 
   new google.visualization.LineChart(container.last()[0]).
     draw(data, {curveType: 'function',
-                smoothLine: false,
-                title: histogramName,
+                //title: histogramName,
                 height: 500,
-                colors: ['red', 'black']});
+                colors: ['red', 'black'],
+                chartArea: {top: 10, height: '80%'},
+                vAxis: {
+                  title: 'Normalized Frequency Count'
+                },
+                hAxis: {
+                  title: regression['description'],
+                  slantedText: true,
+                  slatendTextAngle: 90,
+                }
+  });
 }
 
-function convertData(buckets, regression, reference) {
-  var result = [['Bucket', 'Regression', 'Reference']]
+function convertData(date, buckets, regression, reference) {
+  var dt = new Date(Date.parse(date));
+  dt.setDate(dt.getDate() - 1);
+  dt = dt.toISOString().substring(0, 10);
+  var result = [['Bucket', date, dt]]
 
   for (var i = 0; i < buckets.length; i++) {
-    result.push([buckets[i].toString(), regression[i]*100, reference[i]*100]);
+    result.push([buckets[i].toString(), regression[i], reference[i]]);
   }
 
   return result;
 }
 
+function initTelemetry() {
+  Telemetry.init(function() {
+    var versions = Telemetry.versions();
+
+    versions = versions.filter(function(v) {
+      return /^nightly/.test(v);
+    }).sort();
+
+    lastNightly = versions[versions.length -1].split('/').pop();
+    loadRegressions(lastNightly);
+  });
+}
 google.load("visualization", "1", {packages:["corechart"]});
-google.setOnLoadCallback(loadRegressions);
+google.setOnLoadCallback(initTelemetry);

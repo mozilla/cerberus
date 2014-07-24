@@ -152,8 +152,7 @@ def process_file(filename, regressions):
 def plot(histogram_name, buckets, raw_histograms):
     hist, ref_hist = raw_histograms
 
-    pylab.figure(figsize=(len(buckets)/3, 10))
-
+    fig = pylab.figure(figsize=(len(buckets)/3, 10))
     pylab.plot(hist, label="Regression", color="red")
     pylab.plot(ref_hist, label="Reference", color="blue")
     pylab.legend(shadow=True)
@@ -166,6 +165,7 @@ def plot(histogram_name, buckets, raw_histograms):
     pylab.xticks(locs, buckets, rotation="45")
 
     pylab.savefig(PLOT_FILENAME, bbox_inches='tight')
+    pylab.close(fig)
 
 def mail_alert(histogram, date):
     global histograms
@@ -173,17 +173,9 @@ def mail_alert(histogram, date):
     if args.dry_run:
         return
 
-    if not histograms:
-        try:
-            with open("Histograms.json") as f:
-                histograms = json.load(f)
-        except:
-            logging.warning("Failure to find histogram descriptor file, sending all alerts to default destination.")
-            histograms = {}
+    alert_emails = "rvitillo@mozilla.com"
 
-    alert_emails = "ra.vitillo@gmail.com"
-
-    if histogram in histograms:
+    if histogram in histograms and 'alert_emails' in histograms[histogram]:
         alert_emails = ",".join(histograms[histogram]['alert_emails'])
 
     body = "This alert was generated because the distribution of the histogram " + histogram +\
@@ -197,8 +189,12 @@ def mail_alert(histogram, date):
 def main():
     regressions = []
 
+    with open("Histograms.json") as f:
+        histograms = json.load(f)
+
     #logging.basicConfig(level=logging.DEBUG)
     #process_file('./histograms/FX_TAB_ANIM_ANY_FRAME_INTERVAL_MS.json', regressions)
+    #process_file('./histograms/STARTUP_HTTP_REQUEST_PER_PAGE_FROM_CACHE.json', regressions)
 
     # Process all histograms
     for subdir, dirs, files in os.walk('./histograms'):
@@ -233,6 +229,11 @@ def main():
             descriptor["buckets"] = buckets
             descriptor["regression"] = raw_histograms[0].tolist()
             descriptor["reference"] = raw_histograms[1].tolist()
+
+            name = histogram
+            if histogram.startswith("STARTUP"):
+                name = histogram[8:]
+            descriptor["description"] = histograms.get(name, {}).get("description", "")
 
             # Send regression alert
             mail_alert(histogram, dt)
