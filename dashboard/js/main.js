@@ -34,9 +34,13 @@ function displayRegressionsForDate(date, regressions) {
 }
 
 function displayDateHeader(date) {
-  $('#regressions').append('<div id="' + date + '"class="row"><div class="col-md-12">' +
-                           '<h3 class="text-center" style="background:#FAFAFA; padding:20px"> ' +
-                           'Distribution changes detected on the ' + date + '</h3></div></div>');
+  $('#regressions').append('<div id="' + date + '"class="row">' +
+                             '<div class="col-md-12">' +
+                               '<h3 class="text-center" style="background:#FAFAFA; padding:20px"> ' +
+                                  'Distribution changes detected on the ' + date +
+                                '</h3>' +
+                              '</div>' +
+                            '</div>');
   $('#date-selector').append('<li><a href="#' + date + '">' + date + '</a></li');
 }
 
@@ -44,17 +48,20 @@ function displayRegression(date, histogramName, regression) {
   data = convertData(date, regression["buckets"], regression["regression"], regression["reference"]);
   data = google.visualization.arrayToDataTable(data);
 
-  $('#regressions').append('<div class="row"><div class="col-md-12 title" id="graph-">' +
-                           '<a href="http://telemetry.mozilla.org/#filter=nightly%2F' +
-                           lastNightly + '%2F' + histogramName + '">' +
-                           '<h5 class="text-center">' + histogramName + '</h5></a></div></div>');
+  $('#regressions').append('<div class="row" + id="' + date + histogramName + '">' +
+                             '<div class="col-md-12 title" id="graph-">' +
+                                '<a href="http://telemetry.mozilla.org/#filter=nightly%2F' +
+                                  lastNightly + '%2F' + histogramName + '">' +
+                                  '<h5 class="text-center">' + histogramName + '</h5>' +
+                                '</a>' +
+                              '</div>' +
+                            '</div>');
 
   var container = $('#regressions').append('<div class="row"><div class="col-md-12 graph" id="graph-"></div></div>');
   container = $('.graph', container);
 
   new google.visualization.LineChart(container.last()[0]).
     draw(data, {curveType: 'function',
-                //title: histogramName,
                 height: 500,
                 colors: ['red', 'black'],
                 chartArea: {top: 10, height: '80%'},
