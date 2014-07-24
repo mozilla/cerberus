@@ -179,14 +179,13 @@ def mail_alert(histogram, date):
         alert_emails = ",".join(histograms[histogram]['alert_emails'])
 
     body = "This alert was generated because the distribution of the histogram " + histogram +\
-           " has changed on the " + date + ". Please have a look at the attached plot."
+           " has changed on the " + date + ". Please have a look at the following plot: http://bit.ly/WFG4FK#" + date + histogram
 
-    #TODO remove once we are ready to ship
-    alert_emails = "ra.vitillo@gmail.com"
     send_ses("telemetry-alerts@mozilla.com", "Histogram regression detected",
-             body, alert_emails, PLOT_FILENAME)
+             body, alert_emails)
 
 def main():
+    global histograms
     regressions = []
 
     with open("Histograms.json") as f:
@@ -194,7 +193,6 @@ def main():
 
     #logging.basicConfig(level=logging.DEBUG)
     #process_file('./histograms/FX_TAB_ANIM_ANY_FRAME_INTERVAL_MS.json', regressions)
-    #process_file('./histograms/STARTUP_HTTP_REQUEST_PER_PAGE_FROM_CACHE.json', regressions)
 
     # Process all histograms
     for subdir, dirs, files in os.walk('./histograms'):
@@ -219,8 +217,6 @@ def main():
             print 'Regression found for '+ histogram + ", " + dt
         else:
             print 'Regression found for '+ histogram + ", " + dt + " [new]"
-
-            plot(histogram, buckets, raw_histograms)
 
             if not dt in past_regressions:
                 past_regressions[dt] = {}
