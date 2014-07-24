@@ -24,6 +24,10 @@ function displayRegressions(dates, data) {
   dates.forEach(function(value) {
     displayRegressionsForDate(value, data[value]);
   });
+
+  if (location.hash) {
+    location.href = location.hash;
+  }
 }
 
 function displayRegressionsForDate(date, regressions) {
