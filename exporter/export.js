@@ -39,7 +39,7 @@ var telemetry_versions_filtered = telemetry_inited.then(function() {
   });
 
   versions.sort();
-  versions = _.last(versions, 2);
+  versions = _.last(versions, 3);
 });
 
 // Load measures

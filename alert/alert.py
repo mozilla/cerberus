@@ -5,8 +5,6 @@
 # Search for regression in a histogram dump directory produced by the
 # node exporter.
 
-import matplotlib
-matplotlib.use('Agg') # needed when X11 is not present
 import matplotlib.pyplot as plt
 
 import json
@@ -167,22 +165,28 @@ def plot(histogram_name, buckets, raw_histograms):
     pylab.savefig(PLOT_FILENAME, bbox_inches='tight')
     pylab.close(fig)
 
-def mail_alert(histogram, date):
+def mail_alert(descriptor, histogram, date):
     global histograms
 
     if args.dry_run:
         return
 
-    alert_emails = "rvitillo@mozilla.com"
-
-    if histogram in histograms and 'alert_emails' in histograms[histogram]:
-        alert_emails = ",".join(histograms[histogram]['alert_emails'])
-
     body = "This alert was generated because the distribution of the histogram " + histogram +\
            " has changed on the " + date + ". Please have a look at the following plot: http://bit.ly/WFG4FK#" + date + histogram
 
-    send_ses("telemetry-alerts@mozilla.com", "Histogram regression detected",
-             body, alert_emails)
+    past_alert_emails = descriptor.get('alert_emails', [])
+    alert_emails = ["rvitillo@mozilla.com"]
+    if histogram in histograms and 'alert_emails' in histograms[histogram]:
+        alert_emails = histograms[histogram]['alert_emails']
+
+
+    # Retroactively send e-mails to new subscribers
+    for email in alert_emails:
+        if email not in past_alert_emails:
+            send_ses("telemetry-alerts@mozilla.com", "Histogram regression detected",
+                     body, email)
+
+    descriptor['alert_emails'] = alert_emails
 
 def main():
     global histograms
@@ -231,8 +235,8 @@ def main():
                 name = histogram[8:]
             descriptor["description"] = histograms.get(name, {}).get("description", "")
 
-            # Send regression alert
-            mail_alert(histogram, dt)
+        # Send regression alert
+        mail_alert(past_regressions[dt][histogram], histogram, dt)
 
     # Store regressions found
     with open(REGRESSION_FILENAME, 'w') as f:
