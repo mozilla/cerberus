@@ -1,6 +1,4 @@
 cerberus
 ========
 
-Automatic alert system for telemetry histograms
-
-To run simply launch run.sh.
+Automatic [alert system](http://vitillo.github.io/cerberus/dashboard/) for telemetry histograms.
