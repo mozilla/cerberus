@@ -172,7 +172,7 @@ def mail_alert(descriptor, histogram, date):
         return
 
     body = "This alert was generated because the distribution of the histogram " + histogram +\
-           " has changed on the " + date + ". Please have a look at the following plot: http://bit.ly/WFG4FK#" + date + histogram
+           " has changed on the " + date + ". Please have a look at the following plot: http://vitillo.github.io/cerberus/dashboard/#" + date + histogram
 
     past_alert_emails = descriptor.get('alert_emails', [])
     alert_emails = ["rvitillo@mozilla.com"]
