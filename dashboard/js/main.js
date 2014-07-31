@@ -1,7 +1,16 @@
 lastNightly = null;
 
+function loadLocalRegressions() {
+  return $.getJSON("./regressions.json").done(parseRegressions);
+}
+
+function loadRemoteRegressions() {
+  return $.getJSON("https://s3-us-west-2.amazonaws.com/telemetry-public-analysis/cerberus/data/regressions.json").done(parseRegressions);
+}
+
 function loadRegressions() {
-  $.getJSON("./regressions.json", null, parseRegressions);
+  loadLocalRegressions().
+    fail(loadRemoteRegressions)
 }
 
 function parseRegressions(data) {
