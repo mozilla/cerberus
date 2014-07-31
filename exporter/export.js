@@ -73,10 +73,6 @@ var measures_to_handle = null;
 function handle_one() {
   var measure = measures_to_handle.pop();
 
-  if (measure == 'TELEMETRY_FILES_EVICTED'){
-    measures_to_handle = [];
-  }
-
   if (fs.existsSync('histograms/' + measure + '.json')) {
     console.log("Skipping: " + measure);
     handle_one();
