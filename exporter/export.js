@@ -1,26 +1,8 @@
-require('superagent-retry')(require('superagent'));
-var request       = require('superagent-promise');
-var Telemetry     = require('./telemetry').Telemetry;
+var Telemetry     = require('telemetry-js-node');
 var _             = require('lodash');
 var Promise       = require('promise');
 var fs            = require('fs');
 var mkdirp        = require('mkdirp');
-
-Telemetry.getUrl = function(url, cb) {
-  request
-    .get(url)
-    .retry(5)
-    .end()
-    .then(function(res) {
-    if (!res.ok) {
-      console.log("ERROR: " + res.text);
-    }
-    cb(null, res.body);
-  }).catch(function(err) {
-    console.log("ERROR: " + err);
-  });
-};
-
 
 // Create output directory
 mkdirp.sync('histograms');
@@ -89,7 +71,7 @@ function dumpHgramEvo(hgramEvo, path, result) {
 
 var measures_to_handle = null;
 function handle_one() {
-  measure = measures_to_handle.pop();
+  var measure = measures_to_handle.pop();
 
   if (fs.existsSync('histograms/' + measure + '.json')) {
     console.log("Skipping: " + measure);
@@ -110,8 +92,7 @@ function handle_one() {
     }));
   });
 
-  return Promise.all(promises).then(function(evoHgrams_) {
-    evoHgrams = evoHgrams_;
+  return Promise.all(promises).then(function(evoHgrams) {
     var obj = [];
 
     evoHgrams.forEach(function(evoHgram) {
@@ -120,17 +101,29 @@ function handle_one() {
       }
     });
 
-    fs.writeFileSync('histograms/' + measure + '.json', JSON.stringify(obj, null, 2));
-
-    if(measures_to_handle.length > 0) {
-      handle_one();
-    }
+    // Write file async
+    return new Promise(function(accept, reject) {
+      fs.writeFile(
+        'histograms/' + measure + '.json',
+        JSON.stringify(obj, null, 2),
+        function(err) {
+          if (err) return reject(err);
+          accept();
+        }
+      )
+    }).then(function() {
+      if(measures_to_handle.length > 0) {
+        handle_one();
+      }
+    });
   }).catch(function(err) {console.log(err);});
 };
 
 // Load histograms
-var evoHgrams = null;
 var load_histograms = telemetry_measures_found.then(function() {
-  measures_to_handle = _.keys(measures);
+  measures_to_handle = _.keys(measures).sort();
+  // Download 3 in parallel
+  handle_one();
+  handle_one();
   handle_one();
 }).catch(function(err) {console.log(err);});
