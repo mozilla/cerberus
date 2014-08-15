@@ -175,7 +175,7 @@ def mail_alert(descriptor, histogram, date):
            " has changed on the " + date + ". Please have a look at the following plot: http://vitillo.github.io/cerberus/dashboard/#" + date + histogram
 
     past_alert_emails = descriptor.get('alert_emails', [])
-    alert_emails = ["telemetry-regressions@mozilla.com"]
+    alert_emails = ["dev-telemetry-alerts@lists.mozilla.org"]
     if histogram in histograms and 'alert_emails' in histograms[histogram]:
         alert_emails += histograms[histogram]['alert_emails']
 
