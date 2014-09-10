@@ -183,7 +183,7 @@ def mail_alert(descriptor, histogram, date):
     # Retroactively send e-mails to new subscribers
     for email in alert_emails:
         if email not in past_alert_emails:
-            send_ses("telemetry-alerts@mozilla.com", "Histogram regression detected",
+            send_ses("telemetry-alerts@mozilla.com", "Distribution change detected for " + histogram,
                      body, email)
 
     descriptor['alert_emails'] = alert_emails
