@@ -38,6 +38,9 @@ class Detector:
 
             return self.id
 
+    def realize(self):
+        self.get_id()
+
 class Metric:
     def __init__(self, name, descr, detector):
         self.name = name
@@ -56,11 +59,14 @@ class Metric:
             except urllib2.HTTPError as e:
                 return POST(uri, {'name': self.name, 'description': self.descr})
 
-def post_alert(detector, metric, payload, date=time.strftime("%Y-%m-%d")):
+    def realize(self):
+        self.get_id()
+
+def post_alert(detector, metric, payload, emails="", date=time.strftime("%Y-%m-%d")):
     try:
         payload = json.dumps(payload)
         uri = "/detectors/" + str(detector.get_id()) + "/metrics/" + str(metric.get_id()) + "/alerts/"
-        return POST(uri, {'description': payload, 'date': date})
+        return POST(uri, {'description': payload, 'date': date, 'emails': emails})
     except urllib2.HTTPError as e:
         if e.code == 422:
             print "Alert for detector: " + detector.name + ", metric: " + metric.name + ", has already been submitted!"

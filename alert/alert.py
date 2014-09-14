@@ -165,29 +165,6 @@ def plot(histogram_name, buckets, raw_histograms):
     pylab.savefig(PLOT_FILENAME, bbox_inches='tight')
     pylab.close(fig)
 
-def mail_alert(descriptor, histogram, date):
-    global histograms
-
-    if args.dry_run:
-        return
-
-    body = "This alert was generated because the distribution of the histogram " + histogram +\
-           " has changed on the " + date + ". Please have a look at the following plot: http://vitillo.github.io/cerberus/dashboard/#" + date + histogram
-
-    past_alert_emails = descriptor.get('alert_emails', [])
-    alert_emails = ["dev-telemetry-alerts@lists.mozilla.org"]
-    if histogram in histograms and 'alert_emails' in histograms[histogram]:
-        alert_emails += histograms[histogram]['alert_emails']
-
-
-    # Retroactively send e-mails to new subscribers
-    for email in alert_emails:
-        if email not in past_alert_emails:
-            send_ses("telemetry-alerts@mozilla.com", "Distribution change detected for " + histogram,
-                     body, email)
-
-    descriptor['alert_emails'] = alert_emails
-
 def main():
     global histograms
     regressions = []
@@ -234,9 +211,7 @@ def main():
             if histogram.startswith("STARTUP"):
                 name = histogram[8:]
             descriptor["description"] = histograms.get(name, {}).get("description", "")
-
-        # Send regression alert
-        mail_alert(past_regressions[dt][histogram], histogram, dt)
+            descriptor["alert_emails"] = histograms.get(name, {}).get("alert_emails", "")
 
     # Store regressions found
     with open(REGRESSION_FILENAME, 'w') as f:
@@ -245,9 +220,7 @@ def main():
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Desktop Browser Power benchmarking Utility",
                                     formatter_class=argparse.ArgumentDefaultsHelpFormatter)
-    parser.add_argument("-d", "--dry-run", help="Disable e-mail alerts", action="store_true", dest="dry_run")
 
-    parser.set_defaults(dry_run=False)
     args = parser.parse_args()
 
     main()
