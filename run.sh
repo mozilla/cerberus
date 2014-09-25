@@ -1,7 +1,7 @@
 #!/bin/bash
 
 sudo apt-get -qq update
-sudo DEBIAN_FRONTEND=noninteractive apt-get -qq -y install nodejs npm python-numpy python-opencv python-matplotlib
+sudo DEBIAN_FRONTEND=noninteractive apt-get -qq -y install python-boto nodejs npm python-numpy python-opencv python-matplotlib
 
 pushd .
 cd "$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
