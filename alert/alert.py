@@ -218,7 +218,7 @@ def main():
         json.dump(past_regressions ,f, indent=4)
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Desktop Browser Power benchmarking Utility",
+    parser = argparse.ArgumentParser(description="Telemetry Regression Detector",
                                     formatter_class=argparse.ArgumentDefaultsHelpFormatter)
 
     args = parser.parse_args()
