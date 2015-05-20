@@ -13,6 +13,7 @@ rm -rf ./histograms &&
 wget https://raw.githubusercontent.com/mozilla/gecko-dev/master/toolkit/components/telemetry/Histograms.json -O Histograms.json &&
 nodejs exporter/export.js &&
 python alert/alert.py &&
-python alert/post.py
+python alert/post.py &&
+python alert/expiring.py
 
 popd
