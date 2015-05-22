@@ -14,6 +14,6 @@ wget https://raw.githubusercontent.com/mozilla/gecko-dev/master/toolkit/componen
 nodejs exporter/export.js &&
 python alert/alert.py &&
 python alert/post.py &&
-python alert/expiring.py
+python alert/expiring.py email
 
 popd
