@@ -22,20 +22,19 @@ def send_ses(fromaddr,
              filename=''):
     """Send an email via the Amazon SES service.
 
-    Configuration is stored in `aws-settings.json` in the working directory, of the following form:
-      {
-        "AWS_ACCESS_KEY": "ACESS_KEY_GOES_HERE",
-        "AWS_SECRET_ACCESS_KEY": "SECRET_ACCESS_KEY_GOES_HERE",
-        "AWS_REGION": "us-west-2"
-      }
+Configuration is stored in `aws-settings.json` in the working directory, of the following form:
+  {
+    "AWS_ACCESS_KEY": "ACESS_KEY_GOES_HERE",
+    "AWS_SECRET_ACCESS_KEY": "SECRET_ACCESS_KEY_GOES_HERE",
+    "AWS_REGION": "us-west-2"
+  }
 
-    Example:
-      send_ses('me@example.com, 'greetings', "Hi!", 'you@example.com)
+Example:
+  send_ses('me@example.com, 'greetings', "Hi!", 'you@example.com)
 
-    Return:
-      If 'ErrorResponse' appears in the return message from SES,
-      return the message, otherwise return an empty '' string.
-    """
+Return:
+  If 'ErrorResponse' appears in the return message from SES,
+  return the message, otherwise return an empty '' string."""
     msg = MIMEMultipart()
     msg['Subject'] = subject
     msg['From'] = fromaddr
