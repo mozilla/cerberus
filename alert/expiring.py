@@ -11,6 +11,7 @@ from datetime import datetime, timedelta
 
 from bs4 import BeautifulSoup
 from mail import send_ses
+from version_compare import version_compare
 
 HISTOGRAMS_FILE = "Histograms.json"
 EMAIL_TIME_BEFORE = timedelta(weeks=1)
@@ -32,14 +33,19 @@ def get_future_release_dates():
     return result
 
 def is_expiring(histogram_entry, now, release_dates):
-    expiry = histogram_entry.get("expires_in_version", "never").split(".")[0]
-
-    # check if the version is unknown or far into the future
+    # check if the expiration version is unknown, invalid, or far into the future
+    expiry = histogram_entry.get("expires_in_version", "never").strip()
     if expiry in {"never", "default"}: return False
     try:
-        max_release = max(map(int, release_dates.keys()))
-        if int(expiry) > max_release: return False
-    except ValueError: pass
+        max_release = next(release_dates.iterkeys())
+        for release in release_dates.iterkeys():
+            if version_compare(max_release, release) < 0:
+                max_release = release
+        if version_compare(expiry, max_release) > 0: return False
+    except: # malformed version, assume that means it is expired
+        return True
+
+    # otherwise, it is probably a past version, so it is definitely expired
     if expiry not in release_dates: return True
     
     # known version, check if it is close to release
