@@ -15,7 +15,7 @@ from version_compare import version_compare
 
 HISTOGRAMS_FILE = "Histograms.json"
 EMAIL_TIME_BEFORE = timedelta(weeks=1)
-FROM_ADDR = "cerberus-alert@mozilla.com"
+FROM_ADDR = "telemetry-alert@mozilla.com"
 
 def get_future_release_dates():
     # scrape for future release date tables
@@ -55,7 +55,7 @@ def main():
     with open(HISTOGRAMS_FILE) as f: histograms = json.load(f)
     now, release_dates = datetime.now(), get_future_release_dates()
     notifiable_histograms = sorted([h for h in histograms.items() if is_expiring(h[1], now, release_dates)], key=lambda h: h[0])
-    
+
     # organize histograms into buckets indexed by email
     email_histogram_names = {}
     for name, entry in notifiable_histograms:
@@ -63,7 +63,7 @@ def main():
             for email in entry["alert_emails"]:
                 if email not in email_histogram_names: email_histogram_names[email] = []
                 email_histogram_names[email].append(name)
-    
+
     # send out emails detailing the histograms that they are subscribed to that are expiring
     for email, expiring_histogram_names in email_histogram_names.items():
         email_body = """\
@@ -74,9 +74,9 @@ The following histograms will be expired on or before {}, and should be removed 
 This is an automated message sent by Cerberus. See https://github.com/mozilla/cerberus for details and source code.
         """.format(
             (now + EMAIL_TIME_BEFORE).date(),
-            "\n".join("* {}{} expires in version {}".format(
-                "[SUBSCRIBED] " if name in expiring_histogram_names else "",
-                name, entry["expires_in_version"])
+            "\n".join("* {} expires in version {}{}".format(
+                name, entry["expires_in_version"],
+                " [SUBSCRIBED]" if name in expiring_histogram_names else "")
                 for name, entry in notifiable_histograms)
         )
         print("Sending email to {} with body:\n\n{}\n\n".format(email, email_body))
