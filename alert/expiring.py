@@ -13,6 +13,7 @@ from bs4 import BeautifulSoup
 from mail import send_ses
 from version_compare import version_compare
 
+NOTIFICATIONS_FILE = "already_notified_histograms.json"
 HISTOGRAMS_FILE = "Histograms.json"
 EMAIL_TIME_BEFORE = timedelta(weeks=1)
 FROM_ADDR = "telemetry-alert@mozilla.com"
@@ -33,28 +34,35 @@ def get_future_release_dates():
     return result
 
 def is_expiring(histogram_entry, now, release_dates):
-    # check if the expiration version is unknown, invalid, or far into the future
+    # check if the histogram expires or not
     expiry = histogram_entry.get("expires_in_version", "never").strip()
     if expiry in {"never", "default"}: return False
-    try:
-        max_release = next(release_dates.iterkeys())
-        for release in release_dates.iterkeys():
-            if version_compare(max_release, release) < 0:
-                max_release = release
-        if version_compare(expiry, max_release) > 0: return False
-    except: # malformed version, assume that means it is expired
-        return True
 
-    # otherwise, it is probably a past version, so it is definitely expired
-    if expiry not in release_dates: return True
-    
-    # known version, check if it is close to release
-    return release_dates[expiry] - now < EMAIL_TIME_BEFORE
+    # check if the expiration version has a known release date
+    if expiry in release_dates: return release_dates[expiry] - now < EMAIL_TIME_BEFORE
+
+    # find the very next release in which the histogram is known to be expiring
+    releases = sorted(release_dates.iteritems(), cmp=lambda x, y: version_compare(x[0], y[0]))
+    if releases and version_compare(expiry, releases[0][0]) < 0: # ignore expiries older than the oldest future release
+        return False
+    for version, release_date in releases:
+        if version_compare(expiry, version) <= 0:
+            return release_date - now < EMAIL_TIME_BEFORE
+    return False # version expires in an unknown future version
 
 def main():
+    # load the histograms that we already emailed expiration notices for
+    try:
+        with open(NOTIFICATIONS_FILE, "r") as f: already_notified_histograms = json.load(f)
+    except (IOError, ValueError):
+        already_notified_histograms = []
+
+    # get a list of histograms that are expiring and net yet notified about, sorted alphabetically
     with open(HISTOGRAMS_FILE) as f: histograms = json.load(f)
     now, release_dates = datetime.now(), get_future_release_dates()
-    notifiable_histograms = sorted([h for h in histograms.items() if is_expiring(h[1], now, release_dates)], key=lambda h: h[0])
+    notifiable_histograms = sorted([h for h in histograms.items() if
+        is_expiring(h[1], now, release_dates) and h[0] not in already_notified_histograms],
+        key=lambda h: h[0])
 
     # organize histograms into buckets indexed by email
     email_histogram_names = {}
@@ -64,7 +72,7 @@ def main():
                 if email not in email_histogram_names: email_histogram_names[email] = []
                 email_histogram_names[email].append(name)
 
-    # send out emails detailing the histograms that they are subscribed to that are expiring
+    # send emails to users detailing the histograms that they are subscribed to that are expiring
     for email, expiring_histogram_names in email_histogram_names.items():
         email_body = """\
 The following histograms will be expired on or before {}, and should be removed from the codebase:
@@ -81,6 +89,10 @@ This is an automated message sent by Cerberus. See https://github.com/mozilla/ce
         )
         print("Sending email to {} with body:\n\n{}\n\n".format(email, email_body))
         send_ses(FROM_ADDR, "Telemetry Histogram Expiry", email_body, email)
+
+    # save the newly notified histograms
+    already_notified_histograms += [name for name, entry in notifiable_histograms]
+    with open(NOTIFICATIONS_FILE, "w") as f: json.dump(already_notified_histograms, f, indent=2)
 
 if __name__ == "__main__":
     main()
