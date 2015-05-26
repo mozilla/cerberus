@@ -15,13 +15,12 @@ def send_ses(fromaddr,
              filename=''):
     """Send an email via the Amazon SES service.
 
-    Example:
-      send_ses('me@example.com, 'greetings', "Hi!", 'you@example.com)
+Example:
+  send_ses('me@example.com, 'greetings', "Hi!", 'you@example.com)
 
-    Return:
-      If 'ErrorResponse' appears in the return message from SES,
-      return the message, otherwise return an empty '' string.
-    """
+Return:
+  If 'ErrorResponse' appears in the return message from SES,
+  return the message, otherwise return an empty '' string."""
     msg = MIMEMultipart()
     msg['Subject'] = subject
     msg['From'] = fromaddr
