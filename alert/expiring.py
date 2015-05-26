@@ -9,11 +9,11 @@ import json
 import os
 import sys
 import urllib2
-from datetime import datetime, timedelta
+from datetime import datetime, date, timedelta
 
 from bs4 import BeautifulSoup
 from mail import send_ses
-from version_compare import version_compare
+from mozilla_versions import version_compare, version_get_major, version_normalize_nightly
 
 SCRIPT_DIR = os.path.dirname(os.path.realpath(__file__))
 
@@ -32,7 +32,15 @@ Takes data from the RapidRelease page of the Mozilla Wiki. The page is expected 
     (...anything other than a table...)
     <table>
       (header row)
-      <tr>(...) <th>(expected release date as YYYY-MM-DD)</th> <td>Firefox (Firefox version)</td> </tr>
+      <tr>
+        (..other columns...)
+        <th>(expected merge date as YYYY-MM-DD)</th>
+        <td>Firefox (Firefox nightly)</td>
+        <td>Firefox (Firefox aurora)</td>
+        <td>Firefox (Firefox beta)</td>
+        <th>(expected release date as YYYY-MM-DD)</th>
+        <td>Firefox (Firefox release)</td>
+      </tr>
       (...other rows...)
     </table>
     (...rest of document...)"""
@@ -42,38 +50,40 @@ Takes data from the RapidRelease page of the Mozilla Wiki. The page is expected 
     table = soup.find(id="Future_branch_dates").find_parent("h2").find_next_sibling("table")
     result = {}
     for i, row in enumerate(table.find_all("tr")):
-        if i == 0: continue # skip the header row
-        version = list(row.find_all("td"))[-1].string.strip().replace("Firefox ", "")
-        version = version.split(".")[0] # only keep the major version
-        date_string = list(row.find_all("th"))[-1].string.strip(" \t\r\n*")
-        try: result[version] = datetime.strptime(date_string, "%Y-%m-%d")
+        if i < 2: continue # skip the header row and the current release version
+        fields = list(row.find_all("td"))
+        nightly_version = str(version_get_major(fields[-4].string.replace("Firefox ", ""))) + ".0a1"
+        aurora_version  = str(version_get_major(fields[-3].string.replace("Firefox ", ""))) + ".0a2"
+        beta_version    = str(version_get_major(fields[-2].string.replace("Firefox ", ""))) + ".0b1"
+        release_version = str(version_get_major(fields[-1].string.replace("Firefox ", ""))) + ".0"
+        
+        release_date_string = list(row.find_all("th"))[-1].string.strip(" \t\r\n*")
+        try:
+            release_date = datetime.strptime(release_date_string, "%Y-%m-%d").date()
+            result[aurora_version] = release_date
+            result[beta_version] = release_date
+            result[release_version] = release_date
+        except ValueError: pass
+        
+        nightly_date_string = list(row.find_all("th"))[0].string.strip(" \t\r\n*")
+        try:
+            nightly_date = datetime.strptime(nightly_date_string, "%Y-%m-%d").date()
+            result[nightly_version] = nightly_date
         except ValueError: pass
     return result
 
 def is_expiring(histogram_entry, now, release_dates):
     # check if the histogram expires or not
-    expiry = histogram_entry.get("expires_in_version", "never").strip()
-    if expiry in {"never", "default"}: return False
+    expiry_version = histogram_entry.get("expires_in_version", "never").strip()
+    if expiry_version in {"never", "default"}: return False
 
     # check if the expiration version has a known release date
-    if expiry in release_dates: return release_dates[expiry] - now <= EMAIL_TIME_BEFORE
-
-    # find the very next release in which the histogram is known to be expiring
-    releases = sorted(release_dates.iteritems(), cmp=lambda x, y: version_compare(x[0], y[0]))
-    if releases and version_compare(expiry, releases[0][0]) < 0: # ignore expiries older than the oldest future release
-        return False
-    for version, release_date in releases:
-        if version_compare(expiry, version) <= 0:
-            return release_date - now <= EMAIL_TIME_BEFORE
+    expiry_version = version_normalize_nightly(expiry_version)
+    if expiry_version in release_dates:
+        return release_dates[expiry_version] == now + EMAIL_TIME_BEFORE
     return False # version expires in an unknown future version
 
 def email_histogram_subscribers(now, notifiable_histograms):
-    # load the histograms that we already emailed expiration notices for
-    try:
-        with open(NOTIFICATIONS_FILE, "r") as f: already_notified_histograms = set(json.load(f))
-    except (IOError, ValueError):
-        already_notified_histograms = set()
-
     # organize histograms into buckets indexed by email
     email_histogram_names = {}
     for name, entry in notifiable_histograms:
@@ -100,10 +110,6 @@ This is an automated message sent by Cerberus. See https://github.com/mozilla/ce
         print("Sending email to {} with body:\n\n{}\n\n".format(email, email_body))
         send_ses(FROM_ADDR, "Telemetry Histogram Expiry", email_body, email)
 
-    # save the newly notified histograms
-    already_notified_histograms.update(name for name, entry in notifiable_histograms)
-    with open(NOTIFICATIONS_FILE, "w") as f: json.dump(list(already_notified_histograms), f, indent=2)
-
 def get_expiring_histograms(now, release_dates, histograms):
     return sorted([
         (name, entry) for name, entry in histograms.items() if is_expiring(entry, now, release_dates)
@@ -111,21 +117,21 @@ def get_expiring_histograms(now, release_dates, histograms):
 
 def run_tests():
     release_dates1 = {
-      "38": datetime(2015, 6, 2),
-      "39": datetime(2015, 6, 30),
-      "40": datetime(2015, 8, 11),
-      "41": datetime(2015, 9, 22),
-      "42": datetime(2015, 11, 3),
-      "43": datetime(2015, 12, 15),
-      "44": datetime(2016, 1, 26),
-      "45": datetime(2016, 3, 8),
-      "46": datetime(2016, 4, 19),
-      "47": datetime(2016, 5, 31),
+      "38.0a1": datetime(2015, 6, 2),
+      "39.0a1": datetime(2015, 6, 30),
+      "40.0a1": datetime(2015, 8, 11),
+      "41.0a1": datetime(2015, 9, 22),
+      "42.0a1": datetime(2015, 11, 3),
+      "43.0a1": datetime(2015, 12, 15),
+      "44.0a1": datetime(2016, 1, 26),
+      "45.0a1": datetime(2016, 3, 8),
+      "46.0a1": datetime(2016, 4, 19),
+      "47.0a1": datetime(2016, 5, 31),
     }
     release_dates2 = {
-      "41": datetime(2015, 9, 22),
-      "42": datetime(2015, 11, 3),
-      "43": datetime(2015, 12, 15),
+      "41.0a1": datetime(2015, 9, 22),
+      "42.0a1": datetime(2015, 11, 3),
+      "43.0a1": datetime(2015, 12, 15),
     }
     histograms = {
         "a": {"expires_in_version": "40"},
@@ -133,14 +139,17 @@ def run_tests():
         "c": {"expires_in_version": "40.5"},
         "d": {"expires_in_version": "50"},
         "e": {"expires_in_version": "50"},
-        "f": {"expires_in_version": "41"},
+        "f": {"expires_in_version": "42"},
         "g": {"expires_in_version": "45"},
         "h": {"expires_in_version": "50a4"},
     }
     assert get_expiring_histograms(datetime(2015, 8, 3), release_dates1, histograms) == []
     assert get_expiring_histograms(datetime(2015, 8, 4), release_dates1, histograms) == [("a", {"expires_in_version": "40"}), ("b", {"expires_in_version": "40"})]
+    assert get_expiring_histograms(datetime(2015, 8, 5), release_dates1, histograms) == []
     assert get_expiring_histograms(datetime(2015, 9, 1), release_dates2, histograms) == []
-    assert get_expiring_histograms(datetime(2015, 12, 20), release_dates2, histograms) == [("f", {"expires_in_version": "41"})]
+    assert get_expiring_histograms(datetime(2015, 10, 26), release_dates2, histograms) == []
+    assert get_expiring_histograms(datetime(2015, 10, 27), release_dates2, histograms) == [("f", {"expires_in_version": "42"})]
+    assert get_expiring_histograms(datetime(2015, 10, 28), release_dates2, histograms) == []
 
     print "All tests passed!"
     sys.exit()
@@ -156,8 +165,8 @@ def main():
 
     # get a list of histograms that are expiring and net yet notified about, sorted alphabetically
     with open(HISTOGRAMS_FILE) as f: histograms = json.load(f)
-    now, release_dates = datetime.now(), get_future_release_dates()
-    now = datetime(2015, 8, 5)
+    now, release_dates = date.today(), get_future_release_dates()
+    now = date.today()
     notifiable_histograms = get_expiring_histograms(now, release_dates, histograms)
     if sys.argv[1] == "list":
         for name, entry in notifiable_histograms:
