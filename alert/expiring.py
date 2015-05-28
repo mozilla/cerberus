@@ -2,9 +2,6 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
-# Search for regression in a histogram dump directory produced by the
-# node exporter.
-
 import json
 import os
 import sys
@@ -17,9 +14,10 @@ from mozilla_versions import version_compare, version_get_major, version_normali
 
 SCRIPT_DIR = os.path.dirname(os.path.realpath(__file__))
 
-HISTOGRAMS_FILE = os.path.join(SCRIPT_DIR, "Histograms.json")
-EMAIL_TIME_BEFORE = timedelta(weeks=1)
-FROM_ADDR = "telemetry-alert@mozilla.com"
+HISTOGRAMS_FILE         = os.path.join(SCRIPT_DIR, "Histograms.json") # histogram definitions file
+EMAIL_TIME_BEFORE       = timedelta(weeks=1) # release future date offset
+FROM_ADDR               = "telemetry-alert@mozilla.com" # email address to send alerts from
+GENERAL_TELEMETRY_ALERT = "dev-telemetry-alerts@lists.mozilla.org" # email address that will receive all notifications
 
 def get_future_release_dates():
     """Obtain a dictionary mapping future Firefox version numbers to their intended release date.
@@ -71,42 +69,48 @@ Takes data from the RapidRelease page of the Mozilla Wiki. The page is expected 
         except ValueError: pass
     return result
 
+def email_histogram_subscribers(now, notifiable_histograms, dry_run = False):
+    # organize histograms into buckets indexed by email
+    email_histogram_names = {GENERAL_TELEMETRY_ALERT: []}
+    for name, entry in notifiable_histograms:
+        for email in entry.get("alert_emails", []):
+            if email not in email_histogram_names: email_histogram_names[email] = []
+            email_histogram_names[email].append(name)
+        email_histogram_names[GENERAL_TELEMETRY_ALERT].append(name)
+    if len(email_histogram_names[GENERAL_TELEMETRY_ALERT]) == 0:
+        del email_histogram_names[GENERAL_TELEMETRY_ALERT]
+
+    # send emails to users detailing the histograms that they are subscribed to that are expiring
+    for email, expiring_histogram_names in email_histogram_names.items():
+        email_body = """\
+The following histograms will be expiring on {}, and should be removed from the codebase, or have its expiry date updated:
+
+{}
+
+This is an automated message sent by Cerberus. See https://github.com/mozilla/cerberus for details and source code.""".format(
+            now + EMAIL_TIME_BEFORE,
+            "\n".join("* {} expires in version {} ({}) - {}".format(
+                name, entry["expires_in_version"],
+                "watched by {}".format(", ".join(email for email in entry["alert_emails"])) if "alert_emails" in entry else "no watchers",
+                entry["description"]
+            ) for name, entry in notifiable_histograms if name in expiring_histogram_names)
+        )
+        if dry_run:
+            print("Email notification for {}:\n===============================================\n{}\n===============================================\n".format(email, email_body))
+        else:
+            print("Sending email notification to {} with body:\n\n{}\n".format(email, email_body))
+            send_ses(FROM_ADDR, "Telemetry Histogram Expiry", email_body, email)
+
 def is_expiring(histogram_entry, now, release_dates):
     # check if the histogram expires or not
     expiry_version = histogram_entry.get("expires_in_version", "never").strip()
     if expiry_version in {"never", "default"}: return False
 
     # check if the expiration version has a known release date
-    expiry_version = version_normalize_nightly(expiry_version)
+    expiry_version = version_normalize_nightly(expiry_version) # normalize the version to the nearest nightly if not specified
     if expiry_version in release_dates:
         return release_dates[expiry_version] == now + EMAIL_TIME_BEFORE
     return False # version expires in an unknown future version
-
-def email_histogram_subscribers(now, notifiable_histograms):
-    # organize histograms into buckets indexed by email
-    email_histogram_names = {}
-    for name, entry in notifiable_histograms:
-        for email in entry.get("alert_emails", []):
-            if email not in email_histogram_names: email_histogram_names[email] = []
-            email_histogram_names[email].append(name)
-
-    # send emails to users detailing the histograms that they are subscribed to that are expiring
-    for email, expiring_histogram_names in email_histogram_names.items():
-        email_body = """\
-The following histograms will be expiring on {}, and should be removed from the codebase:
-
-{}
-
-This is an automated message sent by Cerberus. See https://github.com/mozilla/cerberus for details and source code.
-        """.format(
-            now + EMAIL_TIME_BEFORE,
-            "\n".join("* {} expires in version {}{}".format(
-                name, entry["expires_in_version"],
-                " [SUBSCRIBED]" if name in expiring_histogram_names else "")
-                for name, entry in notifiable_histograms)
-        )
-        print("Sending email to {} with body:\n\n{}\n\n".format(email, email_body))
-        send_ses(FROM_ADDR, "Telemetry Histogram Expiry", email_body, email)
 
 def get_expiring_histograms(now, release_dates, histograms):
     return sorted([
@@ -138,9 +142,10 @@ def run_tests():
         "d": {"expires_in_version": "50"},
         "e": {"expires_in_version": "50"},
         "f": {"expires_in_version": "42"},
-        "g": {"expires_in_version": "45"},
+        "g": {"expires_in_version": "43"},
         "h": {"expires_in_version": "50a4"},
     }
+    
     assert get_expiring_histograms(datetime(2015, 8, 3), release_dates1, histograms) == []
     assert get_expiring_histograms(datetime(2015, 8, 4), release_dates1, histograms) == [("a", {"expires_in_version": "40"}), ("b", {"expires_in_version": "40"})]
     assert get_expiring_histograms(datetime(2015, 8, 5), release_dates1, histograms) == []
@@ -153,9 +158,10 @@ def run_tests():
     sys.exit()
 
 def main():
-    if len(sys.argv) != 2 or sys.argv[1] not in {"list", "email", "test"}:
+    if len(sys.argv) != 2 or sys.argv[1] not in {"preview", "email", "test"}:
+        print "Emails subscribed users about expiring histograms."
         print "Usage: {} list|email|test".format(sys.argv[0])
-        print "  {} list    list histograms that are soon expiring".format(sys.argv[0])
+        print "  {} preview print out notifications for histograms that are soon expiring".format(sys.argv[0])
         print "  {} email   notify users of histograms that are soon expiring".format(sys.argv[0])
         print "  {} test    run various internal tests".format(sys.argv[0])
         sys.exit(1)
@@ -165,13 +171,10 @@ def main():
     with open(HISTOGRAMS_FILE) as f: histograms = json.load(f)
     now, release_dates = date.today(), get_future_release_dates()
     now = date.today()
+    now = date(2015, 8, 3)
     notifiable_histograms = get_expiring_histograms(now, release_dates, histograms)
-    if sys.argv[1] == "list":
-        for name, entry in notifiable_histograms:
-            print("{} expires in version {}{}".format(
-                name, entry["expires_in_version"],
-                " (watched by {})".format(", ".join(email for email in entry["alert_emails"])) if "alert_emails" in entry else ""
-            ))
+    if sys.argv[1] == "preview":
+        email_histogram_subscribers(now, notifiable_histograms, dry_run = True)
     else: # send out emails
         email_histogram_subscribers(now, notifiable_histograms)
 
