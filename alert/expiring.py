@@ -157,21 +157,33 @@ def run_tests():
     print "All tests passed!"
     sys.exit()
 
+def print_help():
+    print "Emails subscribed users about expiring histograms."
+    print "Usage: {} list|email|test".format(sys.argv[0])
+    print "  {} preview [YYYY-MM-DD] output notification messages for histograms that are soon expiring as of YYYY-MM-DD (defaults to current date)".format(sys.argv[0])
+    print "  {} email [YYYY-MM-DD]   notify users of histograms that are soon expiring as of YYYY-MM-DD (defaults to current date)".format(sys.argv[0])
+    print "  {} test                 run various internal tests".format(sys.argv[0])
+
 def main():
-    if len(sys.argv) != 2 or sys.argv[1] not in {"preview", "email", "test"}:
-        print "Emails subscribed users about expiring histograms."
-        print "Usage: {} list|email|test".format(sys.argv[0])
-        print "  {} preview print out notifications for histograms that are soon expiring".format(sys.argv[0])
-        print "  {} email   notify users of histograms that are soon expiring".format(sys.argv[0])
-        print "  {} test    run various internal tests".format(sys.argv[0])
+    if not (2 <= len(sys.argv) <= 3) or sys.argv[1] not in {"preview", "email", "test"}:
+        print_help()
         sys.exit(1)
     if sys.argv[1] == "test": run_tests()
 
+    # get the reference date
+    now = date.today()
+    if len(sys.argv) >= 3:
+        try: now = datetime.strptime(sys.argv[2], "%Y-%m-%d").date()
+        except ValueError:
+            print "Unknown/invalid date: {}".format(sys.argv[2])
+            print_help()
+            sys.exit(1)
+    else:
+        now = date.today()
+    
     # get a list of histograms that are expiring and net yet notified about, sorted alphabetically
     with open(HISTOGRAMS_FILE) as f: histograms = json.load(f)
-    now, release_dates = date.today(), get_future_release_dates()
-    now = date.today()
-    now = date(2015, 8, 3)
+    release_dates = get_future_release_dates()
     notifiable_histograms = get_expiring_histograms(now, release_dates, histograms)
     if sys.argv[1] == "preview":
         email_histogram_subscribers(now, notifiable_histograms, dry_run = True)
