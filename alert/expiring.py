@@ -90,7 +90,7 @@ The following histograms will be expiring on {}, and should be removed from the 
 This is an automated message sent by Cerberus. See https://github.com/mozilla/cerberus for details and source code.""".format(
             now + EMAIL_TIME_BEFORE,
             "\n".join("* {} expires in version {} ({}) - {}".format(
-                name, entry["expires_in_version"],
+                name, version_normalize_nightly(entry["expires_in_version"]),
                 "watched by {}".format(", ".join(email for email in entry["alert_emails"])) if "alert_emails" in entry else "no watchers",
                 entry["description"]
             ) for name, entry in notifiable_histograms if name in expiring_histogram_names)
