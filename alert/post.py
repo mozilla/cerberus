@@ -6,7 +6,7 @@ poster.set_server_url("http://localhost:8080")
 
 # Load list of histogram names for which alerts should not be sent
 try:
-    with open("ignored_histograms.json", "r") as f:
+    with open("alert/ignored_histograms.json", "r") as f:
         ignored_histogram_names = set(json.load(f))
 except IOError:
     ignored_histogram_names = set()
