@@ -3,7 +3,7 @@
 sudo apt-get -qq update
 sudo DEBIAN_FRONTEND=noninteractive apt-get -qq -y install python-simplejson python-boto nodejs npm python-numpy python-opencv python-matplotlib
 
-pushd .
+pushd . > /dev/null
 cd "$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 
 git pull
@@ -16,4 +16,4 @@ python alert/alert.py &&
 python alert/post.py &&
 python alert/expiring.py email
 
-popd
+popd > /dev/null
