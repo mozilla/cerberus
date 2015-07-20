@@ -1,4 +1,4 @@
-var Telemetry     = require('telemetry-js-node');
+var Telemetry     = require('telemetry-v2-js-node');
 var _             = require('lodash');
 var Promise       = require('promise');
 var fs            = require('fs');
@@ -15,12 +15,10 @@ var telemetry_inited = new Promise(function(accept) {
 // Find versions to play with
 var versions = null;
 var telemetry_versions_filtered = telemetry_inited.then(function() {
-  versions = Telemetry.versions();
-  versions = versions.filter(function(v) {
+  // Get the last 3 nightly versions
+  versions = Telemetry.getVersions().filter(function(v) {
     return /^nightly/.test(v);
-  });
-
-  versions.sort();
+  }).sort();
   versions = _.last(versions, 3);
 });
 
@@ -30,7 +28,8 @@ var measures_per_version = null;
 var telemetry_measures_found = telemetry_versions_filtered.then(function() {
   return Promise.all(versions.map(function(version) {
     return new Promise(function(accept) {
-      Telemetry.measures(version, accept);
+      var parts = version.split("/");
+      Telemetry.getMeasures(parts[0], parts[1], accept);
     });
   })).then(function(values) {
     measures_per_version = values.map(function(measures) {
@@ -40,13 +39,13 @@ var telemetry_measures_found = telemetry_versions_filtered.then(function() {
   });
 });
 
-function dumpHgramEvo(hgramEvo, path, result) {
-  if (!hgramEvo.filterName()) {
-    hgramEvo.each(function(date, hgram) {
+function dumpEvolution(evolution, path, result) {
+  if (!evolution.filterName()) {
+    evolution.map(function(date, hgram) {
       var output = {
-        measure:      hgram.measure(),
+        measure:      hgram.measure,
         filter:       path,
-        kind:         hgram.kind(),
+        kind:         hgram.kind,
         date:         date.toJSON(),
         submissions:  hgram.submissions(),
         count:        hgram.count(),
@@ -64,8 +63,8 @@ function dumpHgramEvo(hgramEvo, path, result) {
     });
   }
 
-  hgramEvo.filterOptions().forEach(function(option) {
-    dumpHgramEvo(hgramEvo.filter(option), path.concat([option]), result);
+  evolution.filterOptions().map(function(option) {
+    dumpHgramEvo(evolution.filter(option), path.concat([option]), result);
   });
 };
 
@@ -88,16 +87,17 @@ function handle_one() {
     }
 
     promises.push(new Promise(function(accept) {
-      Telemetry.loadEvolutionOverBuilds(version, measure, accept);
+      var parts = version.split("/");
+      Telemetry.getEvolution(parts[0], parts[1], measure, {}, false, accept);
     }));
   });
 
-  return Promise.all(promises).then(function(evoHgrams) {
+  return Promise.all(promises).then(function(evolutionMaps) {
     var obj = [];
 
-    evoHgrams.forEach(function(evoHgram) {
-      if(evoHgram) {
-        dumpHgramEvo(evoHgram, [], obj);
+    evolutionMaps.forEach(function(evolutionMap) {
+      for (var label in evolutionMap) {
+        dumpEvolution(evolutionMap[label], [], obj);
       }
     });
 
