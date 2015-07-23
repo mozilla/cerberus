@@ -29,7 +29,11 @@ var telemetry_measures_found = telemetry_versions_filtered.then(function() {
   return Promise.all(versions.map(function(version) {
     return new Promise(function(accept) {
       var parts = version.split("/");
-      Telemetry.getMeasures(parts[0], parts[1], accept);
+      Telemetry.getFilterOptions(parts[0], parts[1], function(filters) {
+        var measureMap = {};
+        filters.metric.forEach(function(measure) { measureMap[measure] = true; })
+        accept(measureMap);
+      });
     });
   })).then(function(values) {
     measures_per_version = values.map(function(measures) {
@@ -39,32 +43,21 @@ var telemetry_measures_found = telemetry_versions_filtered.then(function() {
   });
 });
 
-function dumpEvolution(evolution, path, result) {
-  if (!evolution.filterName()) {
-    evolution.map(function(date, hgram) {
-      var output = {
-        measure:      hgram.measure,
-        filter:       path,
-        kind:         hgram.kind,
-        date:         date.toJSON(),
-        submissions:  hgram.submissions(),
-        count:        hgram.count(),
-        buckets:      hgram.map(function(count, start) { return start }),
-        values:       hgram.map(function(count) { return count })
-      };
-
-      if (hgram.kind() == 'linear' || hgram.kind() == 'exponential') {
-        output.mean   = hgram.mean();
-        output.median = hgram.median();
-        output.p25    = hgram.percentile(25);
-        output.p75    = hgram.percentile(75);
-      }
-      result.push(output);
-    });
-  }
-
-  evolution.filterOptions().map(function(option) {
-    dumpHgramEvo(evolution.filter(option), path.concat([option]), result);
+function dumpEvolution(evolution, result) {
+  return evolution.map(function(hgram, i, date) {
+    return {
+      measure:      hgram.measure,
+      kind:         hgram.kind,
+      date:         date.toJSON(),
+      submissions:  hgram.submissions,
+      count:        hgram.count,
+      buckets:      hgram.map(function(count, start) { return start }),
+      values:       hgram.map(function(count) { return count }),
+      mean:         hgram.mean(),
+      median:       hgram.percentile(50),
+      p25:          hgram.percentile(25),
+      p75:          hgram.percentile(75),
+    };
   });
 };
 
@@ -94,10 +87,9 @@ function handle_one() {
 
   return Promise.all(promises).then(function(evolutionMaps) {
     var obj = [];
-
     evolutionMaps.forEach(function(evolutionMap) {
       for (var label in evolutionMap) {
-        dumpEvolution(evolutionMap[label], [], obj);
+        obj = obj.concat(dumpEvolution(evolutionMap[label]));
       }
     });
 
@@ -122,6 +114,7 @@ function handle_one() {
 // Load histograms
 var load_histograms = telemetry_measures_found.then(function() {
   measures_to_handle = _.keys(measures).sort();
+
   // Download 3 in parallel
   handle_one();
   handle_one();
