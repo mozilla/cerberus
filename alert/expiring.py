@@ -16,7 +16,7 @@ SCRIPT_DIR = os.path.dirname(os.path.realpath(__file__))
 
 HISTOGRAMS_FILE         = os.path.join(SCRIPT_DIR, "..", "Histograms.json") # histogram definitions file
 EMAIL_TIME_BEFORE       = timedelta(weeks=1) # release future date offset
-FROM_ADDR               = "telemetry-alert@mozilla.com" # email address to send alerts from
+FROM_ADDR               = "telemetry-alerts@mozilla.com" # email address to send alerts from
 GENERAL_TELEMETRY_ALERT = "dev-telemetry-alerts@lists.mozilla.org" # email address that will receive all notifications
 
 def get_release_dates():
@@ -134,8 +134,10 @@ def email_histogram_subscribers(now, notifiable_histograms, expired_histograms, 
 The following histograms will be expiring on {}, and should be removed from the codebase, or have their expiry versions updated:\n\n{}\n
 This is an automated message sent by Cerberus. See https://github.com/mozilla/cerberus for details and source code.""".format(now + EMAIL_TIME_BEFORE, expiring_list)
         else: # alert to the general Telemetry alert mailing list
-            expired_list = "\n".join("* {name} expired in version {version} - {description}".format(
-                name=name, version=version_normalize_nightly(entry["expires_in_version"]), description=entry["description"]
+            expired_list = "\n".join("* {name} expired in version {version} ({watchers}) - {description}".format(
+                name=name, version=version_normalize_nightly(entry["expires_in_version"]),
+                watchers="watched by {}".format(", ".join(email for email in entry["alert_emails"])) if "alert_emails" in entry else "no watchers",
+                description=entry["description"]
             ) for name, entry in expired_histograms)
             email_body = """\
 The following histograms will be expiring on {}, and should be removed from the codebase, or have their expiry versions updated:\n\n{}\n
