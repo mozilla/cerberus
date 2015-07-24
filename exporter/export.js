@@ -63,13 +63,12 @@ function dumpEvolution(evolution, result) {
 
 var measures_to_handle = null;
 function handle_one() {
+  if (measures_to_handle.length === 0) { return; } // No measures left to process
   var measure = measures_to_handle.pop();
 
   if (fs.existsSync('histograms/' + measure + '.json')) {
     console.log("Skipping: " + measure);
-    if (measures_to_handle.length > 0) {
-      handle_one();
-    }
+    handle_one();
     return;
   }
 
@@ -77,11 +76,11 @@ function handle_one() {
   var promises = [];
 
   versions.forEach(function(version, index) {
-    if (measures_per_version[index].indexOf(measure) == -1) {
+    if (measures_per_version[index].indexOf(measure) === -1) { // Version does not have this measre
       return;
     }
 
-    promises.push(new Promise(function(accept) {
+    promises.push(new Promise(function(accept) { // Retrieve the evolution for this version
       var parts = version.split("/");
       Telemetry.getEvolution(parts[0], parts[1], measure, {}, false, accept);
     }));
@@ -106,9 +105,7 @@ function handle_one() {
         }
       )
     }).then(function() {
-      if(measures_to_handle.length > 0) {
-        handle_one();
-      }
+      handle_one();
     });
   }).catch(function(err) {console.log(err);});
 };

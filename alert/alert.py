@@ -83,9 +83,9 @@ Compare the past `nr_future_days` days worth of histograms in `series` to the pa
 Returns a list of the detected regressions.
     """
     regressions = []
-    series = sorted(series.items(), key=lambda x: x[0])
+    series_items = sorted(series.items(), key=lambda x: x[0])
 
-    for i, entry in enumerate(series[:-nr_future_days if nr_future_days else None]):
+    for i, entry in enumerate(series_items[:-nr_future_days if nr_future_days else None]):
         dt, hist = entry
 
         logging.debug("======================")
@@ -98,15 +98,15 @@ Returns a list of the detected regressions.
         comparisons = []
         ref_range = range(max(i - nr_ref_days, 0), i)
 
-        for j in range(i, min(i + nr_future_days + 1, len(s))):
-            comparisons.append(compare_range(s, j, ref_range, nr_ref_days))
+        for j in range(i, min(i + nr_future_days + 1, len(series_items))):
+            comparisons.append(compare_range(series_items, j, ref_range, nr_ref_days))
 
         if len(comparisons) == sum(map(lambda x: x != (None, None), comparisons)):
             logging.debug('Regression found for '+ histogram + dt.strftime(", %d/%m/%Y"))
             regressions.append((dt, histogram, buckets, get_raw_histograms(comparisons)))
     return regressions
 
-def process_file(filename, regressions):
+def process_file(filename):
     logging.debug("Processing " + filename)
     series = {}
     buckets = []
@@ -120,9 +120,11 @@ def process_file(filename, regressions):
             conv = strptime(measure['date'][:10], "%Y-%m-%d")
             measure_date = datetime.fromtimestamp(mktime(conv))
             
-            # Get the values of the 
-            assert measure_date not in series, "Duplicate entry for date {}".format(dt)
-            series[measure_date] = numpy.array(measure["values"])
+            # add the histogram values to the series
+            if measure_date in series:
+                series[measure_date] += numpy.array(measure["values"])
+            else:
+                series[measure_date] = numpy.array(measure["values"])
             buckets = measure['buckets']
 
         measure_name = os.path.splitext(os.path.basename(filename))[0] # Filename without extension
@@ -161,7 +163,7 @@ def main():
     for subdir, dirs, files in os.walk('./histograms'):
         for file in files:
             if file.endswith(".json"):
-                regressions += process_file(subdir + "/" + file, regressions)
+                regressions += process_file(subdir + "/" + file)
 
     # Load past regressions
     past_regressions = {}
