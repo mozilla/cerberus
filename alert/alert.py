@@ -20,7 +20,6 @@ import argparse
 
 from time import mktime, strptime
 from datetime import datetime, timedelta
-from mail import send_ses
 
 histograms = None
 args = None
@@ -28,32 +27,6 @@ args = None
 PLOT_FILENAME = "plot.png"
 REGRESSION_FILENAME = "dashboard/regressions.json"
 HISTOGRAM_DB = "Histograms.json"
-
-def add_to_series(series, measure):
-    conv = strptime(measure['date'][:10], "%Y-%m-%d")
-    series_it = series
-
-    for idx, filter in enumerate(measure['filter'][:3]):
-        if not filter in series_it:
-            series_it[filter] = {}
-        series_it = series_it[filter]
-
-    dt = datetime.fromtimestamp(mktime(conv))
-
-    if dt in series_it:
-        series_it[dt] += numpy.array(measure["values"])
-    else:
-        series_it[dt] = numpy.array(measure["values"])
-
-def compare_histograms(s, regressions, histogram, buckets, path="", nr_ref_days=7):
-    if type(s) is dict:
-        for filter in s:
-            if type(filter) == datetime:
-                compare_histogram(s, regressions, histogram, buckets, path, nr_ref_days)
-                break
-            else:
-                compare_histograms(s[filter], regressions, histogram, buckets, path + "/" + filter)
-
 
 def has_not_enough_data(hist):
     return numpy.sum(hist) < 1000 or numpy.max(hist) < 1000
@@ -103,13 +76,16 @@ def get_raw_histograms(comparisons):
 
     assert(False)
 
-def compare_histogram(s, regressions, histogram, buckets, path, nr_ref_days):
-    # We want to check that the histogram of the current day and the ones of the
-    # next "nr_future_days" days regress against the histograms of the past "nr_ref_days" days
-    s = sorted(s.items(), key=lambda x: x[0])
-    nr_future_days = 2
+def compare_histogram(series, histogram, buckets, path, nr_ref_days = 7, nr_future_days = 2):
+    """
+Compare the past `nr_future_days` days worth of histograms in `series` to the past `nr_ref_days` days worth of histograms in `series` for regressions.
 
-    for i, entry in enumerate(s[:-nr_future_days if nr_future_days else None]):
+Returns a list of the detected regressions.
+    """
+    regressions = []
+    series = sorted(series.items(), key=lambda x: x[0])
+
+    for i, entry in enumerate(series[:-nr_future_days if nr_future_days else None]):
         dt, hist = entry
 
         logging.debug("======================")
@@ -128,24 +104,30 @@ def compare_histogram(s, regressions, histogram, buckets, path, nr_ref_days):
         if len(comparisons) == sum(map(lambda x: x != (None, None), comparisons)):
             logging.debug('Regression found for '+ histogram + dt.strftime(", %d/%m/%Y"))
             regressions.append((dt, histogram, buckets, get_raw_histograms(comparisons)))
+    return regressions
 
 def process_file(filename, regressions):
     logging.debug("Processing " + filename)
     series = {}
     buckets = []
 
+    regressions = []
     with open(filename) as f:
         measures = json.load(f)
         for measure in measures:
-            filters = measure['filter']
-
-            if filters[2] != "WINNT" or filters[1] != "Firefox" or filters[0] != "saved_session":
-                continue
-
-            add_to_series(series, measure)
+            # determine the date of the entry
+            assert "date" in measure, "Missing date in measure"
+            conv = strptime(measure['date'][:10], "%Y-%m-%d")
+            measure_date = datetime.fromtimestamp(mktime(conv))
+            
+            # Get the values of the 
+            assert measure_date not in series, "Duplicate entry for date {}".format(dt)
+            series[measure_date] = numpy.array(measure["values"])
             buckets = measure['buckets']
 
-        compare_histograms(series, regressions, os.path.basename(filename)[:-5], buckets)
+        measure_name = os.path.splitext(os.path.basename(filename))[0] # Filename without extension
+        regressions += compare_histogram(series, measure_name, buckets, "saved_session/Firefox/WINNT")
+    return regressions
 
 def plot(histogram_name, buckets, raw_histograms):
     hist, ref_hist = raw_histograms
@@ -179,7 +161,7 @@ def main():
     for subdir, dirs, files in os.walk('./histograms'):
         for file in files:
             if file.endswith(".json"):
-                process_file(subdir + "/" + file, regressions)
+                regressions += process_file(subdir + "/" + file, regressions)
 
     # Load past regressions
     past_regressions = {}
@@ -191,18 +173,18 @@ def main():
 
     # Print new regressions
     for regression in sorted(regressions, key=lambda x: x[0]):
-        dt, histogram, buckets, raw_histograms = regression
-        dt = dt.isoformat()[:10]
+        regression_date, histogram, buckets, raw_histograms = regression
+        regression_timestamp = regression_date.isoformat()[:10]
 
-        if dt in past_regressions and histogram in past_regressions[dt]:
-            print 'Regression found for '+ histogram + ", " + dt
+        if regression_timestamp in past_regressions and histogram in past_regressions[regression_timestamp]:
+            print 'Regression found for '+ histogram + ", " + regression_timestamp
         else:
-            print 'Regression found for '+ histogram + ", " + dt + " [new]"
+            print 'Regression found for '+ histogram + ", " + regression_timestamp + " [new]"
 
-            if not dt in past_regressions:
-                past_regressions[dt] = {}
+            if not regression_timestamp in past_regressions:
+                past_regressions[regression_timestamp] = {}
 
-            descriptor = past_regressions[dt][histogram] = {}
+            descriptor = past_regressions[regression_timestamp][histogram] = {}
             descriptor["buckets"] = buckets
             descriptor["regression"] = raw_histograms[0].tolist()
             descriptor["reference"] = raw_histograms[1].tolist()
