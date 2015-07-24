@@ -67,11 +67,13 @@ function handle_one() {
 
   if (fs.existsSync('histograms/' + measure + '.json')) {
     console.log("Skipping: " + measure);
-    handle_one();
+    if (measures_to_handle.length > 0) {
+      handle_one();
+    }
     return;
   }
 
-  console.log("Downloading: " + measure);
+  console.log("Downloading: " + measure + " (" + measures_to_handle.length + " remaining)");
   var promises = [];
 
   versions.forEach(function(version, index) {
