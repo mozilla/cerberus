@@ -109,7 +109,6 @@ def compare_histogram(series, histogram, buckets, nr_ref_days = 7, nr_future_day
     return regressions
 
 def process_file(filename):
-    if filename != "./histograms/PROCESS_CRASH_SUBMIT_ATTEMPT.json": return []
     logging.debug("Processing " + filename)
     series = {}
     buckets = []
@@ -126,10 +125,8 @@ def process_file(filename):
             # add the histogram values to the series
             if measure_date in series:
                 series[measure_date] += numpy.array(measure["values"])
-                print measure_date, ",".join(str(x) for x in series[measure_date])
             else:
                 series[measure_date] = numpy.array(measure["values"])
-                print measure_date, ",".join(str(x) for x in series[measure_date])
             buckets = measure['buckets']
 
         measure_name = os.path.splitext(os.path.basename(filename))[0] # Filename without extension
