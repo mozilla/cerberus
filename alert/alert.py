@@ -93,11 +93,11 @@ def compare_histogram(series, histogram, buckets, nr_ref_days = 7, nr_future_day
 
         logging.debug("======================")
         logging.debug("Analyzing " + dt.strftime("%d/%m/%Y"))
-        
+
         if has_not_enough_data(hist): # Histogram doesn't have enough submissions to get a meaningful result
             logging.debug("Histogram has not enough data")
             continue
-        
+
         comparisons = []
         ref_range = range(max(i - nr_ref_days, 0), i)
 
@@ -122,7 +122,7 @@ def process_file(filename):
             assert "date" in measure, "Missing date in measure"
             conv = strptime(measure['date'][:10], "%Y-%m-%d")
             measure_date = datetime.fromtimestamp(mktime(conv))
-            
+
             # add the histogram values to the series
             if measure_date in series:
                 series[measure_date] += numpy.array(measure["values"])
