@@ -24,7 +24,7 @@ from datetime import datetime, timedelta
 histograms = None
 args = None
 
-PLOT_FILENAME = "plot.png"
+PLOT_FILENAME = "plot-{histogram_name}.png"
 REGRESSION_FILENAME = "dashboard/regressions.json"
 HISTOGRAM_DB = "Histograms.json"
 
@@ -32,36 +32,42 @@ def has_not_enough_data(hist):
     return numpy.sum(hist) < 1000 or numpy.max(hist) < 1000
 
 def normalize(hist):
+    """Returns a copy of the given histogram scaled such that its sum is 1, or 0 if this is not possible"""
     hist = hist.astype('float32')
-    return hist / numpy.sum(hist)
+    total = numpy.sum(hist)
+    if total == 0: return hist
+    return hist / total
 
 def bat_distance(hist, ref):
-    return cv2.compareHist(hist, ref, 3) # Bhattacharyya distance
+    """Compute the Bhattacharyya distance between two distributions, using OpenCV"""
+    return cv2.compareHist(hist, ref, 3)
 
 def compare_range(series, idx, range, nr_ref_days):
     dt, hist = series[idx]
     hist = normalize(hist)
-    dists = []
+    bat_distances = []
     logging.debug("Comparing " + dt.strftime("%d/%m/%Y"))
 
     for jdx in range:
         ref_dt, ref_hist = series[jdx]
+        ref_hist = normalize(ref_hist)
         logging.debug("To " + ref_dt.strftime("%d/%m/%Y"))
 
         if has_not_enough_data(ref_hist):
             logging.debug("Reference histogram has not enough data")
             continue
 
-        ref_hist = normalize(ref_hist)
-        dists.append(bat_distance(hist, ref_hist))
+        bat_distances.append(bat_distance(hist, ref_hist))
 
-    if len(dists):
+    # There are histograms that have enough data to be compared
+    if len(bat_distances):
         logging.debug('Bhattacharyya distance: ' + str(dists[-1]))
         logging.debug('Standard deviation of the distances: ' + str(numpy.std(dists)))
 
-    if len(dists) > nr_ref_days/2 and dists[-1] > 0.12 and numpy.std(dists) <= 0.01:
+    # The last compared histograms are significantly different, and the differences have a very narrow spread
+    if len(bat_distances) > nr_ref_days/2 and dists[-1] > 0.12 and numpy.std(dists) <= 0.01:
         logging.debug("Suspicious difference found")
-        return (hist, ref_hist)
+        return (hist, ref_hist) # Produce the last compared histogram pair
     else:
         logging.debug("No suspicious difference found")
         return (None, None)
@@ -76,12 +82,8 @@ def get_raw_histograms(comparisons):
 
     assert(False)
 
-def compare_histogram(series, histogram, buckets, path, nr_ref_days = 7, nr_future_days = 2):
-    """
-Compare the past `nr_future_days` days worth of histograms in `series` to the past `nr_ref_days` days worth of histograms in `series` for regressions.
-
-Returns a list of the detected regressions.
-    """
+def compare_histogram(series, histogram, buckets, nr_ref_days = 7, nr_future_days = 2):
+    """Compare the past `nr_future_days` days worth of histograms in `series` to the past `nr_ref_days` days worth of histograms in `series`, returning a list of found regressions."""
     regressions = []
     series_items = sorted(series.items(), key=lambda x: x[0])
 
@@ -89,12 +91,12 @@ Returns a list of the detected regressions.
         dt, hist = entry
 
         logging.debug("======================")
-        logging.debug("Analyzing " + dt.strftime(", %d/%m/%Y"))
-
-        if has_not_enough_data(hist):
+        logging.debug("Analyzing " + dt.strftime("%d/%m/%Y"))
+        
+        if has_not_enough_data(hist): # Histogram doesn't have enough submissions to get a meaningful result
             logging.debug("Histogram has not enough data")
             continue
-
+        
         comparisons = []
         ref_range = range(max(i - nr_ref_days, 0), i)
 
@@ -107,6 +109,7 @@ Returns a list of the detected regressions.
     return regressions
 
 def process_file(filename):
+    if filename != "./histograms/PROCESS_CRASH_SUBMIT_ATTEMPT.json": return []
     logging.debug("Processing " + filename)
     series = {}
     buckets = []
@@ -123,12 +126,16 @@ def process_file(filename):
             # add the histogram values to the series
             if measure_date in series:
                 series[measure_date] += numpy.array(measure["values"])
+                print measure_date, ",".join(str(x) for x in series[measure_date])
             else:
                 series[measure_date] = numpy.array(measure["values"])
+                print measure_date, ",".join(str(x) for x in series[measure_date])
             buckets = measure['buckets']
 
         measure_name = os.path.splitext(os.path.basename(filename))[0] # Filename without extension
-        regressions += compare_histogram(series, measure_name, buckets, "saved_session/Firefox/WINNT")
+        regressions += compare_histogram(series, measure_name, buckets)
+        if regressions:
+            import sys; sys.exit()
     return regressions
 
 def plot(histogram_name, buckets, raw_histograms):
@@ -146,7 +153,7 @@ def plot(histogram_name, buckets, raw_histograms):
     locs, labels = pylab.xticks()
     pylab.xticks(locs, buckets, rotation="45")
 
-    pylab.savefig(PLOT_FILENAME, bbox_inches='tight')
+    pylab.savefig(PLOT_FILENAME.format(histogram_name=histogram_name), bbox_inches='tight')
     pylab.close(fig)
 
 def main():
