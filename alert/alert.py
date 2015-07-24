@@ -45,27 +45,28 @@ def bat_distance(hist, ref):
 def compare_range(series, idx, range, nr_ref_days):
     dt, hist = series[idx]
     hist = normalize(hist)
-    bat_distances = []
+    distances = []
     logging.debug("Comparing " + dt.strftime("%d/%m/%Y"))
 
     for jdx in range:
         ref_dt, ref_hist = series[jdx]
-        ref_hist = normalize(ref_hist)
         logging.debug("To " + ref_dt.strftime("%d/%m/%Y"))
 
         if has_not_enough_data(ref_hist):
             logging.debug("Reference histogram has not enough data")
+            ref_hist = normalize(ref_hist)
             continue
+        ref_hist = normalize(ref_hist)
 
-        bat_distances.append(bat_distance(hist, ref_hist))
+        distances.append(bat_distance(hist, ref_hist))
 
     # There are histograms that have enough data to be compared
-    if len(bat_distances):
-        logging.debug('Bhattacharyya distance: ' + str(dists[-1]))
-        logging.debug('Standard deviation of the distances: ' + str(numpy.std(dists)))
+    if len(distances):
+        logging.debug('Bhattacharyya distance: ' + str(distances[-1]))
+        logging.debug('Standard deviation of the distances: ' + str(numpy.std(distances)))
 
     # The last compared histograms are significantly different, and the differences have a very narrow spread
-    if len(bat_distances) > nr_ref_days/2 and dists[-1] > 0.12 and numpy.std(dists) <= 0.01:
+    if len(distances) > nr_ref_days/2 and distances[-1] > 0.12 and numpy.std(distances) <= 0.01:
         logging.debug("Suspicious difference found")
         return (hist, ref_hist) # Produce the last compared histogram pair
     else:
@@ -131,8 +132,6 @@ def process_file(filename):
 
         measure_name = os.path.splitext(os.path.basename(filename))[0] # Filename without extension
         regressions += compare_histogram(series, measure_name, buckets)
-        if regressions:
-            import sys; sys.exit()
     return regressions
 
 def plot(histogram_name, buckets, raw_histograms):
