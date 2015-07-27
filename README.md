@@ -22,7 +22,7 @@ Code Overview
   * By default, the Medusa server URL is set to `localhost:8080` - it expects to be on the same machine as the Medusa server. This can be changed by editing `alert/post.py`.
 * `alert/expiring.py` is the histogram expiry detector - it notifies people via email when histograms are expiring soon.
   * Some configurable number of days before the versions where histograms are set to expire, it sends out emails using Amazon SES to watchers, and the dev-telemetry-alerts mailing list.
-* `dashboard/` contains the telemetry regressions dashboard, which can be used to view regressions. It is intended to be hosted via GitHub Pages or a similar static hosting solution.
+* `dashboard/` contains a debugging/development dashboard for viewing detected regressions. It is intended to be hosted via GitHub Pages or a similar static hosting solution.
 
 In production, there is a simple shell script, `/mnt/telemetry/update.sh`, that updates Cerberus and Medusa, triggered daily by a cronjob:
 
