@@ -7,8 +7,6 @@ Cerberus detects changes in the distribution of histograms (histogram regression
 
 Cerberus is also responsible for sending out email reminders for histograms that are expiring in upcoming versions.
 
-The production instance is currently hosted on [telemetry-regression-alerts](ec2-52-13-120-199.us-west-2.compute.amazonaws.com) on the us-east-1 AWS region. All the production files live in `/mnt/telemetry/cerberus/`. There is a cronjob 
-
 Code Overview
 -------------
 
