@@ -2,7 +2,7 @@ var _             = require('lodash');
 var Promise       = require('promise');
 var fs            = require('fs');
 var mkdirp        = require('mkdirp');
-var Telemetry     = require('telemetry-js-node');
+var Telemetry     = require('telemetry-next-node');
 
 // Create output directory
 mkdirp.sync('histograms');
