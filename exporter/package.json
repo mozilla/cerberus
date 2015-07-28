@@ -9,6 +9,6 @@
     "lodash":                           "2.4.1",
     "debug":                            "0.7.4",
     "mkdirp":                           "0.5.0",
-    "telemetry-next-node":              "1.0.2"
+    "telemetry-next-node":              "1.0.3"
   }
 }
