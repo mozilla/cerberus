@@ -114,8 +114,7 @@ function handle_one() {
 var load_histograms = telemetry_measures_found.then(function() {
   measures_to_handle = _.keys(measures).sort();
 
-  // Download 3 in parallel
-  handle_one();
+  // Download 2 in parallel
   handle_one();
   handle_one();
 }).catch(function(err) {console.log(err);});
