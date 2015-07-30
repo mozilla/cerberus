@@ -24,7 +24,7 @@ from datetime import datetime, timedelta
 histograms = None
 args = None
 
-OUTPUT_PLOTS, PLOT_FILENAME = False, "plot-{histogram_name}.png" # Whether to plot the found regressions, and what filename to save them with if plotting
+OUTPUT_PLOTS, PLOT_FILENAME = False, "plot-{histogram_name}-{date}.png" # Whether to plot the found regressions, and what filename to save them with if plotting
 REGRESSION_FILENAME = "dashboard/regressions.json"               # Path of JSON file containing a list of all found regressions
 HISTOGRAM_DB = "Histograms.json"                                 # Path to JSON file containing histogram definitions map
 
@@ -108,7 +108,8 @@ def compare_histogram(series, histogram, buckets, nr_ref_days = 7, nr_future_day
             logging.debug('Regression found for '+ histogram + dt.strftime(", %d/%m/%Y"))
             regressions.append((dt, histogram, buckets, get_raw_histograms(comparisons)))
             if OUTPUT_PLOTS and len(buckets) < 300: # There are histograms with several hundred buckets that cause plotting to fail since the resulting image is just too large
-                plot(histogram, buckets, get_raw_histograms(comparisons))
+                file_name = PLOT_FILENAME.format(histogram_name=histogram, date=dt.strftime("%d-%m-%Y"))
+                plot(file_name, histogram, buckets, get_raw_histograms(comparisons))
     return regressions
 
 def process_file(filename):
@@ -136,7 +137,7 @@ def process_file(filename):
         regressions += compare_histogram(series, measure_name, buckets)
     return regressions
 
-def plot(histogram_name, buckets, raw_histograms):
+def plot(file_name, histogram_name, buckets, raw_histograms):
     hist, ref_hist = raw_histograms
 
     fig = pylab.figure(figsize=(len(buckets)/3, 10))
@@ -151,7 +152,7 @@ def plot(histogram_name, buckets, raw_histograms):
     locs, labels = pylab.xticks()
     pylab.xticks(locs, buckets, rotation="45")
 
-    pylab.savefig(PLOT_FILENAME.format(histogram_name=histogram_name), bbox_inches='tight')
+    pylab.savefig(file_name, bbox_inches='tight')
     pylab.close(fig)
 
 def main():
