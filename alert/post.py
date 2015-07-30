@@ -21,8 +21,6 @@ with open('Histograms.json') as f:
 # Post detected alerts
 with open('dashboard/regressions.json') as f:
     regressions = json.load(f)
-    poster.set_server_url("http://localhost:8080")
-    detector = poster.Detector("Histogram Regression Detector", "Histogram Regression Detector")
 
     for date, regressions in regressions.iteritems():
         for histogram_name, regression in regressions.iteritems():
