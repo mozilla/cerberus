@@ -24,9 +24,9 @@ from datetime import datetime, timedelta
 histograms = None
 args = None
 
-PLOT_FILENAME = "plot-{histogram_name}.png"
-REGRESSION_FILENAME = "dashboard/regressions.json"
-HISTOGRAM_DB = "Histograms.json"
+OUTPUT_PLOTS, PLOT_FILENAME = False, "plot-{histogram_name}.png" # Whether to plot the found regressions, and what filename to save them with if plotting
+REGRESSION_FILENAME = "dashboard/regressions.json"               # Path of JSON file containing a list of all found regressions
+HISTOGRAM_DB = "Histograms.json"                                 # Path to JSON file containing histogram definitions map
 
 def has_not_enough_data(hist):
     return numpy.sum(hist) < 1000 or numpy.max(hist) < 1000
@@ -107,6 +107,8 @@ def compare_histogram(series, histogram, buckets, nr_ref_days = 7, nr_future_day
         if len(comparisons) == sum(map(lambda x: x != (None, None), comparisons)):
             logging.debug('Regression found for '+ histogram + dt.strftime(", %d/%m/%Y"))
             regressions.append((dt, histogram, buckets, get_raw_histograms(comparisons)))
+            if OUTPUT_PLOTS and len(buckets) < 300: # There are histograms with several hundred buckets that cause plotting to fail since the resulting image is just too large
+                plot(histogram, buckets, get_raw_histograms(comparisons))
     return regressions
 
 def process_file(filename):
