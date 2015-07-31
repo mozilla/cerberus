@@ -95,14 +95,16 @@ function handle_one() {
   return Promise.all(promises).then(function() {
     // Write file async
     return new Promise(function(accept, reject) {
-      fs.writeFile(
-        'histograms/' + measure + '.json',
-        JSON.stringify(result, null, 2),
-        function(err) {
-          if (err) return reject(err);
-          accept();
-        }
-      )
+      if (result.length > 0) {
+        fs.writeFile(
+          'histograms/' + measure + '.json',
+          JSON.stringify(result, null, 2),
+          function(err) {
+            if (err) return reject(err);
+            accept();
+          }
+        );
+      }
     }).then(function() {
       handle_one();
     });
