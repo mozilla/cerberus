@@ -75,6 +75,7 @@ function handle_one() {
   console.log("Downloading: " + measure + " (" + measures_to_handle.length + " remaining)");
   var promises = [];
 
+  result = [];
   versions.forEach(function(version, index) {
     if (measures_per_version[index].indexOf(measure) === -1) { // Version does not have this measre
       return;
@@ -82,23 +83,21 @@ function handle_one() {
 
     promises.push(new Promise(function(accept) { // Retrieve the evolution for this version
       var parts = version.split("/");
-      Telemetry.getEvolution(parts[0], parts[1], measure, {}, false, accept);
+      Telemetry.getEvolution(parts[0], parts[1], measure, {}, false, function(evolutionMap) {
+        if (evolutionMap.hasOwnProperty("")) { // Non-keyed histogram
+          dumpEvolution(evolutionMap[""]).forEach(function(entry) { result.push(entry); });
+        }
+        accept();
+      });
     }));
   });
 
-  return Promise.all(promises).then(function(evolutionMaps) {
-    var obj = [];
-    evolutionMaps.forEach(function(evolutionMap) {
-      for (var label in evolutionMap) {
-        obj = obj.concat(dumpEvolution(evolutionMap[label]));
-      }
-    });
-
+  return Promise.all(promises).then(function() {
     // Write file async
     return new Promise(function(accept, reject) {
       fs.writeFile(
         'histograms/' + measure + '.json',
-        JSON.stringify(obj, null, 2),
+        JSON.stringify(result, null, 2),
         function(err) {
           if (err) return reject(err);
           accept();
