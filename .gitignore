@@ -3,3 +3,4 @@ node_modules/
 *.pyo
 dashboard/regressions.json
 Histograms.json
+histograms/

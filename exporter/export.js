@@ -73,9 +73,8 @@ function handle_one() {
   }
 
   console.log("Downloading: " + measure + " (" + measures_to_handle.length + " remaining)");
-  var promises = [];
 
-  result = [];
+  var promises = [], result = [];
   versions.forEach(function(version, index) {
     if (measures_per_version[index].indexOf(measure) === -1) { // Version does not have this measre
       return;
@@ -95,20 +94,17 @@ function handle_one() {
   return Promise.all(promises).then(function() {
     // Write file async
     return new Promise(function(accept, reject) {
-      if (result.length > 0) {
+      if (result.length > 0) { // Results available, write them to disk
         fs.writeFile(
           'histograms/' + measure + '.json',
           JSON.stringify(result, null, 2),
-          function(err) {
-            if (err) return reject(err);
-            accept();
-          }
+          function(err) { return err ? reject(err) : accept(); }
         );
+      } else { // No results available, skip writing to disk
+        accept();
       }
-    }).then(function() {
-      handle_one();
-    });
-  }).catch(function(err) {console.log(err);});
+    }).then(function() { handle_one(); }); // Process the next available measure
+  }).catch(function(err) { console.log(err); });
 };
 
 // Load histograms
