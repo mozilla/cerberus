@@ -1,15 +1,9 @@
 #!/bin/bash
 
-sudo apt-get -qq update
-sudo DEBIAN_FRONTEND=noninteractive apt-get -qq -y install python-simplejson python-boto nodejs npm python-numpy python-opencv python-matplotlib
-
 pushd . > /dev/null
 cd "$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 
-git pull
-(cd exporter; npm install) &&
-rm -rf ./histograms &&
-
+rm -rf ./histograms Histograms.json &&
 wget https://raw.githubusercontent.com/mozilla/gecko-dev/master/toolkit/components/telemetry/Histograms.json -O Histograms.json &&
 nodejs exporter/export.js &&
 python alert/alert.py &&

@@ -1,0 +1,42 @@
+- hosts: all
+
+  vars:
+    - remote_deploy: no
+    - cerberus_directory: /vagrant/
+
+  pre_tasks:
+  - name: Set variables
+    set_fact: cerberus_directory={{ansible_env.HOME}}/cerberus/
+    when: remote_deploy
+
+  - name: Install packages
+    sudo: yes
+    apt: name={{item}} state=installed update_cache=yes cache_valid_time=3600
+    with_items:
+      - python-simplejson
+      - python-boto
+      - python-numpy
+      - python-opencv
+      - python-matplotlib
+      - nodejs
+      - npm
+
+  - name: Install cerberus
+    git: repo=git://github.com/mozilla/cerberus.git dest={{ansible_env.HOME}}/cerberus update=yes accept_hostkey=yes
+    when: remote_deploy
+
+  - name: Install node packages
+    npm: path={{cerberus_directory}}/exporter/
+
+  - name: Setup cron job
+    sudo: yes
+    cron: name=cerberus hour=5 job="{{cerberus_directory}}/run.sh > /var/log/cerberus.log" cron_file=cerberus user=root
+    when: remote_deploy
+
+  - name: Restart cron
+    sudo: yes
+    service: name=cron state=restarted
+    when: remote_deploy
+
+  roles:
+    - dotfiles

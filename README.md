@@ -7,6 +7,15 @@ Cerberus detects changes in the distribution of histograms (histogram regression
 
 Cerberus is also responsible for sending out email reminders for histograms that are expiring in upcoming versions.
 
+Development and deployment
+--------------------------
+
+To start hacking on your local machine:
+```bash
+vagrant up
+vagrant ssh
+```
+
 Code Overview
 -------------
 
