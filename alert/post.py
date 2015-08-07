@@ -34,6 +34,6 @@ with open('dashboard/regressions.json') as f:
                            'x_label': regression['description'],
                            'y_label': "Normalized Frequency Count",
                            'title': histogram_name,
-                           'link': "http://telemetry.mozilla.org/#filter=nightly/nn/" + histogram_name,
+                           'link': "http://telemetry.mozilla.org/new-pipeline/dist.html#!measure={histogram_name}&product=Firefox&start_date={date}&end_date={date}&table=0&use_submission_date=0".format(date=date, histogram_name=histogram_name),
                            'type': 'graph'}
                 poster.post_alert(detector, metric, payload, ",".join(regression['alert_emails']), date)
