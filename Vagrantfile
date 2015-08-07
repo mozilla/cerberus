@@ -24,7 +24,14 @@ Vagrant.configure("2") do |config|
     dev.ssh.insert_key = false
     dev.vm.box = "ubuntu/vivid64"
     dev.vm.provision "ansible" do |ansible|
+      ansible.host_key_checking = false
       ansible.playbook = "ansible/deploy.yml"
+      ansible.extra_vars = { ansible_ssh_user: 'vagrant',
+                             ansible_connection: 'ssh',
+                             ansible_ssh_args: '-o ForwardAgent=yes'}
+      ansible.groups = {
+        "service" => ["dev"]
+      }
     end
   end
 end
