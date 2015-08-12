@@ -1,0 +1,13 @@
+- name: Install packages
+  sudo: yes
+  apt: name={{item}} state=installed update_cache=yes cache_valid_time=3600
+  with_items:
+    - python-simplejson
+    - python-boto
+    - python-numpy
+    - python-opencv
+    - python-matplotlib
+    - python-bs4
+    - nodejs
+    - npm
+    - git

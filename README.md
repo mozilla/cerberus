@@ -16,6 +16,14 @@ vagrant up
 vagrant ssh
 ```
 
+To deploy cerberus on AWS:
+```
+ansible-playbook ansible/provision.yml -i ansible/inventory
+```
+
+Note that the deployment requires [medusa](https://github.com/mozilla/medusa) to be deployed.
+
+
 Code Overview
 -------------
 
@@ -32,20 +40,3 @@ Code Overview
 * `alert/expiring.py` is the histogram expiry detector - it notifies people via email when histograms are expiring soon.
   * Some configurable number of days before the versions where histograms are set to expire, it sends out emails using Amazon SES to watchers, and the dev-telemetry-alerts mailing list.
 * `dashboard/` contains a debugging/development dashboard for viewing detected regressions. It is intended to be hosted via GitHub Pages or a similar static hosting solution.
-
-In production, there is a simple shell script, `/mnt/telemetry/update.sh`, that updates Cerberus and Medusa, triggered daily by a cronjob:
-
-    #!/bin/bash
-    cd /mnt/telemetry
-    export PATH=$PATH:/usr/local/bin
-    cd medusa; git pull
-    cd ..
-    cd cerberus; git pull
-    ./run.sh &> ../cerberus.log
-    cd ..
-    iacomus-alerts/run.sh &> iacomus-alerts.log
-    aws s3 cp medusa/resources/medusa.sqlite s3://telemetry-regressions-v1/medusa.sqlite &> s3backup.log
-
-The crontab looks like this:
-
-    5 4 * * * /mnt/telemetry/update.sh

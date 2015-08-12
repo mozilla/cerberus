@@ -1,44 +1,19 @@
 - remote_user: ubuntu
-  hosts: service
+  hosts: tag_Name_telemetry_regression_detector  # Assumes medusa is already deployed
 
   vars:
-    - remote_deploy: no
-    - cerberus_directory: /vagrant/
+    - project_directory: "{{ansible_env.HOME}}/cerberus"
 
-  pre_tasks:
-  - name: Set variables
-    set_fact: cerberus_directory={{ansible_env.HOME}}/cerberus/
-    when: remote_deploy
+  tasks:
+    - include: deps.yml
 
-  - name: Install packages
-    sudo: yes
-    apt: name={{item}} state=installed update_cache=yes cache_valid_time=3600
-    with_items:
-      - python-simplejson
-      - python-boto
-      - python-numpy
-      - python-opencv
-      - python-matplotlib
-      - nodejs
-      - npm
-      - git
+    - name: Install cerberus
+      git: repo=git://github.com/mozilla/cerberus.git dest={{project_directory}} update=yes accept_hostkey=yes
 
-  - name: Install cerberus
-    git: repo=git://github.com/mozilla/cerberus.git dest={{ansible_env.HOME}}/cerberus update=yes accept_hostkey=yes
-    when: remote_deploy
+    - name: Setup cron job
+      sudo: yes
+      cron: name=cerberus hour=5 job="{{project_directory}}/run.sh > /var/log/cerberus.log" cron_file=cerberus user=root
 
-  - name: Install node packages
-    npm: path={{cerberus_directory}}/exporter/
-
-  - name: Setup cron job
-    sudo: yes
-    cron: name=cerberus hour=5 job="{{cerberus_directory}}/run.sh > /var/log/cerberus.log" cron_file=cerberus user=root
-    when: remote_deploy
-
-  - name: Restart cron
-    sudo: yes
-    service: name=cron state=restarted
-    when: remote_deploy
-
-  roles:
-    - dotfiles
+    - name: Restart cron
+      sudo: yes
+      service: name=cron state=restarted
