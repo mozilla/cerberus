@@ -18,7 +18,7 @@ vagrant ssh
 
 To deploy cerberus on AWS:
 ```
-ansible-playbook ansible/provision.yml -i ansible/inventory
+ansible-playbook ansible/deploy.yml -i ansible/inventory
 ```
 
 Note that the deployment requires [medusa](https://github.com/mozilla/medusa) to be deployed.
