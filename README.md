@@ -30,7 +30,7 @@ Code Overview
 `run.sh` is a shell script that will set up all the dependencies, then do a full run of the Cerberus detectors. These are the components used in the script:
 
 * `exporter/export.js` downloads the histogram evolutions from the [v4 aggregates API](https://github.com/vitillo/python_mozaggregator).
-  * This script uses a custom fork of [telemetry-js-node](https://github.com/Uberi/telemetry-js-node/tree/v4-pipeline) that uses the v4 pipeline.
+  * This script uses [telemetry-next-node](https://www.npmjs.com/package/telemetry-next-node) in order to access Unified Telemetry data.
 * The code for detecting regressions lives in `alert/alert.py`. This file is intended to be run as a script.
   * This is a script that reads histogram definitions from `Histograms.json` (which is downloaded automatically by `run.sh`).
   * Detected regressions are written out to `dashboard/regressions.json`.
