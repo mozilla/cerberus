@@ -28,7 +28,7 @@ Takes data from the RapidRelease page of the Mozilla Wiki. The page is expected 
     <h2><span id="Future_branch_dates">(TITLE)</span></h2>
     (...anything other than a table...)
     <table>
-      (header row)
+      (...other rows...)
       <tr>
         (..other td columns...)
         <th>(expected merge date as YYYY-MM-DD)</th>
@@ -44,7 +44,7 @@ Takes data from the RapidRelease page of the Mozilla Wiki. The page is expected 
     <h2><span id="Past_branch_dates">(TITLE)</span></h2>
     (...anything other than a table...)
     <table>
-      (header row)
+      (...other rows...)
       <tr>
         (..other td columns...)
         <th>(expected merge date as YYYY-MM-DD)</th>
@@ -63,9 +63,17 @@ Takes data from the RapidRelease page of the Mozilla Wiki. The page is expected 
     
     # scrape for future release date tables
     table = soup.find(id="Future_branch_dates").find_parent("h2").find_next_sibling("table")
-    for i, row in enumerate(table.find_all("tr")):
-        if i < 2: continue # skip the header row and the current release version
+    for row in table.find_all("tr"):
+        # obtain the row and make sure it is valid (this skips the header row and any minor version rows)
         fields = list(row.find_all("td"))
+        if len(fields) < 4: continue # not enough fields in the row, probably a header row
+        is_valid = True
+        for field in fields[-4:]: # ensure that each column represents a Firefox version
+            if "Firefox" not in field.string:
+                is_valid = False
+                break
+        if not is_valid: continue
+
         nightly_version = str(version_get_major(fields[-4].string.replace("Firefox ", ""))) + ".0a1"
         aurora_version  = str(version_get_major(fields[-3].string.replace("Firefox ", ""))) + ".0a2"
         beta_version    = str(version_get_major(fields[-2].string.replace("Firefox ", ""))) + ".0b1"
@@ -87,10 +95,17 @@ Takes data from the RapidRelease page of the Mozilla Wiki. The page is expected 
     
     # scrape for past release date tables
     table = soup.find(id="Past_branch_dates").find_parent("h2").find_next_sibling("table")
-    for i, row in enumerate(table.find_all("tr")):
-        if i == 0: continue # skip the header row
+    for row in table.find_all("tr"):
+        # obtain the row and make sure it is valid (this skips the header row and any minor version rows)
         fields = list(row.find_all("td"))
-        if len(fields) != 4: continue # row with some blank entries
+        if len(fields) < 4: continue # not enough fields in the row, probably a header row
+        is_valid = True
+        for field in fields[-4:]: # ensure that each column represents a Firefox version
+            if "Firefox" not in field.string:
+                is_valid = False
+                break
+        if not is_valid: continue
+
         nightly_version = str(version_get_major(fields[-4].string.replace("Firefox ", ""))) + ".0a1"
         aurora_version  = str(version_get_major(fields[-3].string.replace("Firefox ", ""))) + ".0a2"
         beta_version    = str(version_get_major(fields[-2].string.replace("Firefox ", ""))) + ".0b1"
