@@ -19,6 +19,56 @@ EMAIL_TIME_BEFORE       = timedelta(weeks=1) # release future date offset
 FROM_ADDR               = "telemetry-alerts@mozilla.com" # email address to send alerts from
 GENERAL_TELEMETRY_ALERT = "dev-telemetry-alerts@lists.mozilla.org" # email address that will receive all notifications
 
+def get_version_table_dates(table):
+    """Given a version table, obtains a dictionary mapping Firefox version numbers to their intended release date.
+
+The table is expected to be in the following form:
+
+    <table>
+      (...other rows...)
+      <tr>
+        (..other td columns...)
+        <th>(expected merge date as YYYY-MM-DD)</th>
+        <td>Firefox (Firefox nightly)</td>
+        <td>Firefox (Firefox aurora)</td>
+        <td>Firefox (Firefox beta)</td>
+        <th>(expected release date as YYYY-MM-DD)</th>
+        <td>Firefox (Firefox release)</td>
+      </tr>
+      (...other rows...)
+    </table>"""
+    result = {}
+    for row in table.find_all("tr"):
+        # obtain the row and make sure it is valid (this skips the header row and any minor version rows)
+        fields = list(row.find_all("td"))
+        if len(fields) < 4: continue # not enough fields in the row, probably a header row
+        is_valid = True
+        for field in fields[-4:]: # ensure that each column represents a Firefox version
+            if "Firefox" not in field.string:
+                is_valid = False
+                break
+        if not is_valid: continue
+
+        nightly_version = str(version_get_major(fields[-4].string.replace("Firefox ", ""))) + ".0a1"
+        aurora_version  = str(version_get_major(fields[-3].string.replace("Firefox ", ""))) + ".0a2"
+        beta_version    = str(version_get_major(fields[-2].string.replace("Firefox ", ""))) + ".0b1"
+        release_version = str(version_get_major(fields[-1].string.replace("Firefox ", ""))) + ".0"
+        
+        release_date_string = list(row.find_all("th"))[-1].string.strip(" \t\r\n*")
+        try:
+            release_date = datetime.strptime(release_date_string, "%Y-%m-%d").date()
+            result[aurora_version] = release_date
+            result[beta_version] = release_date
+            result[release_version] = release_date
+        except ValueError: pass
+        
+        nightly_date_string = list(row.find_all("th"))[0].string.strip(" \t\r\n*")
+        try:
+            nightly_date = datetime.strptime(nightly_date_string, "%Y-%m-%d").date()
+            result[nightly_version] = nightly_date
+        except ValueError: pass
+    return result
+
 def get_release_dates():
     """Obtain a dictionary mapping future Firefox version numbers to their intended release date.
 
@@ -27,88 +77,22 @@ Takes data from the RapidRelease page of the Mozilla Wiki. The page is expected 
     (...beginning of document...)
     <h2><span id="Future_branch_dates">(TITLE)</span></h2>
     (...anything other than a table...)
-    <table>
-      (header row)
-      <tr>
-        (..other td columns...)
-        <th>(expected merge date as YYYY-MM-DD)</th>
-        <td>Firefox (Firefox nightly)</td>
-        <td>Firefox (Firefox aurora)</td>
-        <td>Firefox (Firefox beta)</td>
-        <th>(expected release date as YYYY-MM-DD)</th>
-        <td>Firefox (Firefox release)</td>
-      </tr>
-      (...other rows...)
-    </table>
+    (...version table...)
     (...more content...)
     <h2><span id="Past_branch_dates">(TITLE)</span></h2>
     (...anything other than a table...)
-    <table>
-      (header row)
-      <tr>
-        (..other td columns...)
-        <th>(expected merge date as YYYY-MM-DD)</th>
-        <td>Firefox (Firefox nightly)</td>
-        <td>Firefox (Firefox aurora)</td>
-        <td>Firefox (Firefox beta)</td>
-        <th>(expected release date as YYYY-MM-DD)</th>
-        <td>Firefox (Firefox release)</td>
-      </tr>
-      (...other rows...)
-    </table>
+    (...version table...)
     (...rest of document...)"""
     response = json.loads(urllib2.urlopen("https://wiki.mozilla.org/api.php?action=parse&format=json&page=RapidRelease/Calendar").read())
     soup = BeautifulSoup(response["parse"]["text"]["*"])
-    result = {}
     
     # scrape for future release date tables
     table = soup.find(id="Future_branch_dates").find_parent("h2").find_next_sibling("table")
-    for i, row in enumerate(table.find_all("tr")):
-        if i < 2: continue # skip the header row and the current release version
-        fields = list(row.find_all("td"))
-        nightly_version = str(version_get_major(fields[-4].string.replace("Firefox ", ""))) + ".0a1"
-        aurora_version  = str(version_get_major(fields[-3].string.replace("Firefox ", ""))) + ".0a2"
-        beta_version    = str(version_get_major(fields[-2].string.replace("Firefox ", ""))) + ".0b1"
-        release_version = str(version_get_major(fields[-1].string.replace("Firefox ", ""))) + ".0"
-        
-        release_date_string = list(row.find_all("th"))[-1].string.strip(" \t\r\n*")
-        try:
-            release_date = datetime.strptime(release_date_string, "%Y-%m-%d").date()
-            result[aurora_version] = release_date
-            result[beta_version] = release_date
-            result[release_version] = release_date
-        except ValueError: pass
-        
-        nightly_date_string = list(row.find_all("th"))[0].string.strip(" \t\r\n*")
-        try:
-            nightly_date = datetime.strptime(nightly_date_string, "%Y-%m-%d").date()
-            result[nightly_version] = nightly_date
-        except ValueError: pass
+    result = get_version_table_dates(table)
     
     # scrape for past release date tables
     table = soup.find(id="Past_branch_dates").find_parent("h2").find_next_sibling("table")
-    for i, row in enumerate(table.find_all("tr")):
-        if i == 0: continue # skip the header row
-        fields = list(row.find_all("td"))
-        if len(fields) != 4: continue # row with some blank entries
-        nightly_version = str(version_get_major(fields[-4].string.replace("Firefox ", ""))) + ".0a1"
-        aurora_version  = str(version_get_major(fields[-3].string.replace("Firefox ", ""))) + ".0a2"
-        beta_version    = str(version_get_major(fields[-2].string.replace("Firefox ", ""))) + ".0b1"
-        release_version = str(version_get_major(fields[-1].string.replace("Firefox ", ""))) + ".0"
-        
-        release_date_string = list(row.find_all("th"))[-1].string.strip(" \t\r\n*")
-        try:
-            release_date = datetime.strptime(release_date_string, "%Y-%m-%d").date()
-            result[aurora_version] = release_date
-            result[beta_version] = release_date
-            result[release_version] = release_date
-        except ValueError: pass
-        
-        nightly_date_string = list(row.find_all("th"))[0].string.strip(" \t\r\n*")
-        try:
-            nightly_date = datetime.strptime(nightly_date_string, "%Y-%m-%d").date()
-            result[nightly_version] = nightly_date
-        except ValueError: pass
+    result.update(get_version_table_dates(table))
     return result
 
 def email_histogram_subscribers(now, notifiable_histograms, expired_histograms, dry_run = False):
