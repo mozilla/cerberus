@@ -8,6 +8,7 @@
     - include: deps.yml
 
     - name: Install cerberus
+      sudo: yes
       git: repo=git://github.com/mozilla/cerberus.git dest={{project_directory}} update=yes accept_hostkey=yes
 
     - name: Setup cron job
