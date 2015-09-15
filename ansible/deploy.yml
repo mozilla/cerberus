@@ -13,7 +13,7 @@
 
     - name: Setup cron job
       sudo: yes
-      cron: name=cerberus hour=5 job="{{project_directory}}/run.sh > /var/log/cerberus.log" cron_file=cerberus user=root
+      cron: name=cerberus minute=0 hour=5 job="{{project_directory}}/run.sh > /var/log/cerberus.log" cron_file=cerberus user=root
 
     - name: Restart cron
       sudo: yes
