@@ -15,7 +15,7 @@ from mozilla_versions import version_compare, version_get_major, version_normali
 SCRIPT_DIR = os.path.dirname(os.path.realpath(__file__))
 
 HISTOGRAMS_FILE         = os.path.join(SCRIPT_DIR, "..", "Histograms.json") # histogram definitions file
-EMAIL_TIME_BEFORE       = timedelta(weeks=1) # release future date offset
+EMAIL_TIME_BEFORE       = timedelta(weeks=2) # release future date offset
 FROM_ADDR               = "telemetry-alerts@mozilla.com" # email address to send alerts from
 GENERAL_TELEMETRY_ALERT = "dev-telemetry-alerts@lists.mozilla.org" # email address that will receive all notifications
 
