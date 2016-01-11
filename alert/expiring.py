@@ -14,10 +14,12 @@ from mozilla_versions import version_compare, version_get_major, version_normali
 
 SCRIPT_DIR = os.path.dirname(os.path.realpath(__file__))
 
-HISTOGRAMS_FILE         = os.path.join(SCRIPT_DIR, "..", "Histograms.json") # histogram definitions file
-EMAIL_TIME_BEFORE       = timedelta(weeks=2) # release future date offset
-FROM_ADDR               = "telemetry-alerts@mozilla.com" # email address to send alerts from
-GENERAL_TELEMETRY_ALERT = "dev-telemetry-alerts@lists.mozilla.org" # email address that will receive all notifications
+HISTOGRAMS_FILE           = os.path.join(SCRIPT_DIR, "..", "Histograms.json") # histogram definitions file
+EMAIL_TIME_BEFORE         = timedelta(weeks=6) # first expiry notification is to be sent out exactly 6 weeks before the release date
+EMAIL_TIME_BEFORE_SHERIFF = timedelta(weeks=2) # second expiry notification (which includes sheriffs) is to be sent out exactly 2 weeks before the release date
+FROM_ADDR                 = "telemetry-alerts@mozilla.com" # email address to send alerts from
+GENERAL_TELEMETRY_ALERT   = "dev-telemetry-alerts@lists.mozilla.org" # email address that will receive all notifications, 6 weeks beforeexpiry
+SHERIFF_ALERT             = "sheriffs@mozilla.org" # email address for sheriff notifications
 
 def get_version_table_dates(table):
     """Given a version table, obtains a dictionary mapping Firefox version numbers to their intended release date.
@@ -95,16 +97,20 @@ Takes data from the RapidRelease page of the Mozilla Wiki. The page is expected 
     result.update(get_version_table_dates(table))
     return result
 
-def email_histogram_subscribers(now, notifiable_histograms, expired_histograms, dry_run = False):
+def email_histogram_subscribers(current_date, target_date, notifiable_histograms, expired_histograms, notify_sheriffs = False, dry_run = False):
+    if len(notifiable_histograms) == 0: # nothing to send any alerts about
+        return
+
     # organize histograms into buckets indexed by email
     email_histogram_names = {GENERAL_TELEMETRY_ALERT: []}
-    for name, entry in notifiable_histograms:
+    for histogram_name, entry in notifiable_histograms:
         for email in entry.get("alert_emails", []):
             if email not in email_histogram_names: email_histogram_names[email] = []
-            email_histogram_names[email].append(name)
-        email_histogram_names[GENERAL_TELEMETRY_ALERT].append(name)
-    if len(email_histogram_names[GENERAL_TELEMETRY_ALERT]) == 0:
-        del email_histogram_names[GENERAL_TELEMETRY_ALERT]
+            email_histogram_names[email].append(histogram_name)
+        email_histogram_names[GENERAL_TELEMETRY_ALERT].append(histogram_name)
+
+    if notify_sheriffs: # if the sheriffs are to be alerted, they should get a list of all expiring histograms
+        email_histogram_names[SHERIFF_ALERT] = email_histogram_names[GENERAL_TELEMETRY_ALERT]
 
     # send emails to users detailing the histograms that they are subscribed to that are expiring
     for email, expiring_histogram_names in email_histogram_names.items():
@@ -114,27 +120,29 @@ def email_histogram_subscribers(now, notifiable_histograms, expired_histograms, 
             description=entry["description"]
         ) for name, entry in notifiable_histograms if name in expiring_histogram_names)
         if email != GENERAL_TELEMETRY_ALERT: # alert to a normal watcher
-            email_body = """\
-The following histograms will be expiring on {}, and should be removed from the codebase, or have their expiry versions updated:\n\n{}\n
-This is an automated message sent by Cerberus. See https://github.com/mozilla/cerberus for details and source code.""".format(now + EMAIL_TIME_BEFORE, expiring_list)
+            email_body = (
+                "The following histograms will be expiring on {}, and should be removed from the codebase, or have their expiry versions updated:\n\n{}\n\n"
+                "This is an automated message sent by Cerberus. See https://github.com/mozilla/cerberus for details and source code."
+            ).format(target_date, expiring_list)
         else: # alert to the general Telemetry alert mailing list
             expired_list = "\n".join("* {name} expired in version {version} ({watchers}) - {description}".format(
                 name=name, version=version_normalize_nightly(entry["expires_in_version"]),
                 watchers="watched by {}".format(", ".join(email for email in entry["alert_emails"])) if "alert_emails" in entry else "no watchers",
                 description=entry["description"]
             ) for name, entry in expired_histograms)
-            email_body = """\
-The following histograms will be expiring on {}, and should be removed from the codebase, or have their expiry versions updated:\n\n{}\n
-The following histograms are expired as of {}:\n\n{}\n
-This is an automated message sent by Cerberus. See https://github.com/mozilla/cerberus for details and source code.""".format(now + EMAIL_TIME_BEFORE, expiring_list, now, expired_list)
+            email_body = (
+                "The following histograms will be expiring on {}, and should be removed from the codebase, or have their expiry versions updated:\n\n{}\n\n"
+                "The following histograms are expired as of {}:\n\n{}\n\n"
+                "This is an automated message sent by Cerberus. See https://github.com/mozilla/cerberus for details and source code."
+            ).format(target_date, expiring_list, current_date, expired_list)
         if dry_run:
             print("Email notification for {}:\n===============================================\n{}\n===============================================\n".format(email, email_body))
         else:
             print("Sending email notification to {} with body:\n\n{}\n".format(email, email_body))
             send_ses(FROM_ADDR, "Telemetry Histogram Expiry", email_body, email)
 
-def is_expiring(histogram_entry, now, release_dates, include_past = False):
-    """Returns `True` if the histogram `histogram_entry` is expiring on the date `now`, `False` otherwise."""
+def is_expiring(histogram_entry, target_date, release_dates, include_past = False):
+    """Returns `True` if the histogram `histogram_entry` is expiring on the date `target_date`, `False` otherwise."""
     # check if the histogram expires or not
     expiry_version = histogram_entry.get("expires_in_version", "never").strip()
     if expiry_version in {"never", "default"}: return False
@@ -142,23 +150,25 @@ def is_expiring(histogram_entry, now, release_dates, include_past = False):
     # check if the expiration version has a known release date
     expiry_version = version_normalize_nightly(expiry_version) # normalize the version to the nearest nightly if not specified
     if expiry_version in release_dates:
-        return release_dates[expiry_version] <= now if include_past else release_dates[expiry_version] == now
+        return release_dates[expiry_version] <= target_date if include_past else release_dates[expiry_version] == target_date
     
     if include_past: # search for the oldest version that is greater than the current version and assume that is the release date
         sorted_versions = sorted(release_dates.keys(), cmp=version_compare)
         for version in sorted_versions:
             if version_compare(expiry_version, version) <= 0:
-                return release_dates[version] <= now
+                return release_dates[version] <= target_date
     
     return False # version expires in an unknown future or past version
 
-def get_expiring_histograms(now, release_dates, histograms, include_past = False):
+def get_expiring_histograms(target_date, release_dates, histograms, include_past = False):
     """Returns a list of pairs containing histogram names and histogram entries that are expiring, sorted alphabetically by name."""
     return sorted([
-        (name, entry) for name, entry in histograms.items() if is_expiring(entry, now, release_dates, include_past=include_past)
+        (name, entry) for name, entry in histograms.items() if is_expiring(entry, target_date, release_dates, include_past=include_past)
     ], key=lambda h: h[0])
 
 def run_tests():
+    assert len(get_release_dates()) > 4 # this function should return several versions if the table is formatted correctly
+
     release_dates1 = {
       "38.0a1": date(2015, 6, 2),
       "39.0a1": date(2015, 6, 30),
@@ -188,21 +198,21 @@ def run_tests():
         "i": {"expires_in_version": "38"},
     }
     
-    assert get_expiring_histograms(date(2015, 8, 3) + EMAIL_TIME_BEFORE, release_dates1, histograms) == []
-    assert get_expiring_histograms(date(2015, 8, 4) + EMAIL_TIME_BEFORE, release_dates1, histograms) == [("a", {"expires_in_version": "40"}), ("b", {"expires_in_version": "40"})]
-    assert get_expiring_histograms(date(2015, 8, 5) + EMAIL_TIME_BEFORE, release_dates1, histograms) == []
-    assert get_expiring_histograms(date(2015, 9, 1) + EMAIL_TIME_BEFORE, release_dates2, histograms) == []
-    assert get_expiring_histograms(date(2015, 10, 26) + EMAIL_TIME_BEFORE, release_dates2, histograms) == []
-    assert get_expiring_histograms(date(2015, 10, 27) + EMAIL_TIME_BEFORE, release_dates2, histograms) == [("f", {"expires_in_version": "42"})]
-    assert get_expiring_histograms(date(2015, 10, 28) + EMAIL_TIME_BEFORE, release_dates2, histograms) == []
+    assert get_expiring_histograms(date(2015, 8, 10), release_dates1, histograms) == []
+    assert get_expiring_histograms(date(2015, 8, 11), release_dates1, histograms) == [("a", {"expires_in_version": "40"}), ("b", {"expires_in_version": "40"})]
+    assert get_expiring_histograms(date(2015, 8, 12), release_dates1, histograms) == []
+    assert get_expiring_histograms(date(2015, 9, 8), release_dates2, histograms) == []
+    assert get_expiring_histograms(date(2015, 11, 2), release_dates2, histograms) == []
+    assert get_expiring_histograms(date(2015, 11, 3), release_dates2, histograms) == [("f", {"expires_in_version": "42"})]
+    assert get_expiring_histograms(date(2015, 11, 4), release_dates2, histograms) == []
     
-    assert get_expiring_histograms(date(2015, 8, 3) + EMAIL_TIME_BEFORE, release_dates1, histograms, True) == [("i", {"expires_in_version": "38"})]
-    assert get_expiring_histograms(date(2015, 8, 4) + EMAIL_TIME_BEFORE, release_dates1, histograms, True) == [("a", {"expires_in_version": "40"}), ("b", {"expires_in_version": "40"}), ("i", {"expires_in_version": "38"})]
-    assert get_expiring_histograms(date(2015, 8, 5) + EMAIL_TIME_BEFORE, release_dates1, histograms, True) == [("a", {"expires_in_version": "40"}), ("b", {"expires_in_version": "40"}), ("i", {"expires_in_version": "38"})]
-    assert get_expiring_histograms(date(2015, 9, 1) + EMAIL_TIME_BEFORE, release_dates2, histograms, True) == []
-    assert get_expiring_histograms(date(2015, 10, 26) + EMAIL_TIME_BEFORE, release_dates2, histograms, True) == [("a", {"expires_in_version": "40"}), ("b", {"expires_in_version": "40"}), ("c", {"expires_in_version": "40.5"}), ("i", {"expires_in_version": "38"})]
-    assert get_expiring_histograms(date(2015, 10, 27) + EMAIL_TIME_BEFORE, release_dates2, histograms, True) == [("a", {"expires_in_version": "40"}), ("b", {"expires_in_version": "40"}), ("c", {"expires_in_version": "40.5"}), ("f", {"expires_in_version": "42"}), ("i", {"expires_in_version": "38"})]
-    assert get_expiring_histograms(date(2015, 10, 28) + EMAIL_TIME_BEFORE, release_dates2, histograms, True) == [("a", {"expires_in_version": "40"}), ("b", {"expires_in_version": "40"}), ("c", {"expires_in_version": "40.5"}), ("f", {"expires_in_version": "42"}), ("i", {"expires_in_version": "38"})]
+    assert get_expiring_histograms(date(2015, 8, 10), release_dates1, histograms, True) == [("i", {"expires_in_version": "38"})]
+    assert get_expiring_histograms(date(2015, 8, 11), release_dates1, histograms, True) == [("a", {"expires_in_version": "40"}), ("b", {"expires_in_version": "40"}), ("i", {"expires_in_version": "38"})]
+    assert get_expiring_histograms(date(2015, 8, 12), release_dates1, histograms, True) == [("a", {"expires_in_version": "40"}), ("b", {"expires_in_version": "40"}), ("i", {"expires_in_version": "38"})]
+    assert get_expiring_histograms(date(2015, 9, 8), release_dates2, histograms, True) == []
+    assert get_expiring_histograms(date(2015, 11, 2), release_dates2, histograms, True) == [("a", {"expires_in_version": "40"}), ("b", {"expires_in_version": "40"}), ("c", {"expires_in_version": "40.5"}), ("i", {"expires_in_version": "38"})]
+    assert get_expiring_histograms(date(2015, 11, 3), release_dates2, histograms, True) == [("a", {"expires_in_version": "40"}), ("b", {"expires_in_version": "40"}), ("c", {"expires_in_version": "40.5"}), ("f", {"expires_in_version": "42"}), ("i", {"expires_in_version": "38"})]
+    assert get_expiring_histograms(date(2015, 11, 4), release_dates2, histograms, True) == [("a", {"expires_in_version": "40"}), ("b", {"expires_in_version": "40"}), ("c", {"expires_in_version": "40.5"}), ("f", {"expires_in_version": "42"}), ("i", {"expires_in_version": "38"})]
 
     print "All tests passed!"
     sys.exit()
@@ -234,12 +244,16 @@ def main():
     # get a list of histograms that are expiring and net yet notified about, sorted alphabetically
     with open(HISTOGRAMS_FILE) as f: histograms = json.load(f)
     release_dates = get_release_dates()
-    notifiable_histograms = get_expiring_histograms(now + EMAIL_TIME_BEFORE, release_dates, histograms)
+    target_date, target_date_sheriff = now + EMAIL_TIME_BEFORE, now + EMAIL_TIME_BEFORE_SHERIFF
+    notifiable_histograms = get_expiring_histograms(target_date, release_dates, histograms) # histograms that we should send out notifications for
+    notifiable_histograms_sheriff = get_expiring_histograms(target_date_sheriff, release_dates, histograms) # same as above, but sheriffs should also be notified
     expired_histograms = get_expiring_histograms(now, release_dates, histograms, include_past=True)
-    if sys.argv[1] == "preview":
-        email_histogram_subscribers(now, notifiable_histograms, expired_histograms, dry_run = True)
+    if sys.argv[1] == "preview": # dry run, just print out the emails rather than sending them
+        email_histogram_subscribers(now, target_date, notifiable_histograms, expired_histograms, dry_run = True)
+        email_histogram_subscribers(now, target_date_sheriff, notifiable_histograms_sheriff, expired_histograms, notify_sheriffs = True, dry_run = True)
     else: # send out emails
-        email_histogram_subscribers(now, notifiable_histograms, expired_histograms)
+        email_histogram_subscribers(now, target_date, notifiable_histograms, expired_histograms)
+        email_histogram_subscribers(now, target_date_sheriff, notifiable_histograms_sheriff, expired_histograms, notify_sheriffs = True)
 
 if __name__ == "__main__":
     main()
