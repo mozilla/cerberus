@@ -43,6 +43,10 @@ def bat_distance(hist, ref):
     return cv2.compareHist(hist, ref, 3)
 
 def compare_range(series, idx, range, nr_ref_days):
+    """Compare histogram at index `idx` to all of the histograms at indices in `range` in `series`."""
+    assert iter(series) and all(len(item) == 2 for item in series), "`series` must be of the form `[(DATETIME_1, HISTOGRAM_1), ..., (DATETIME_N, HISTOGRAM_N)]`"
+    assert 0 <= idx < len(series) and idx % 1 == 0, "`index` must be a valid index"
+    assert iter(range) and all(0 <= i < len(series) and i % 1 == 0 for i in range), "`range` must be an iterable of valid indices"
     dt, hist = series[idx]
     hist = normalize(hist)
     distances = []
@@ -86,7 +90,7 @@ def get_raw_histograms(comparisons):
 def compare_histogram(series, histogram, buckets, nr_ref_days = 7, nr_future_days = 2):
     """Compare the past `nr_future_days` days worth of histograms in `series` to the past `nr_ref_days` days worth of histograms in `series`, returning a list of found regressions."""
     regressions = []
-    series_items = sorted(series.items(), key=lambda x: x[0])
+    series_items = sorted(series.items(), key=lambda x: x[0]) # sorted list of pairs, each of the form (DATETIME, HISTOGRAM_FOR_THAT_DATE)
 
     for i, entry in enumerate(series_items[:-nr_future_days if nr_future_days else None]):
         dt, hist = entry
@@ -118,15 +122,15 @@ def process_file(filename):
     buckets = []
 
     regressions = []
-    with open(filename) as f:
+    with open(filename) as f: # one of the JSON files of the form `histograms/MEASURE_NAME.json`
         measures = json.load(f)
-        for measure in measures:
+        for measure in measures: # a measure in this context is a histogram and a date that the histogram applies to
             # determine the date of the entry
             assert "date" in measure, "Missing date in measure"
             conv = strptime(measure['date'][:10], "%Y-%m-%d")
             measure_date = datetime.fromtimestamp(mktime(conv))
 
-            # add the histogram values to the series
+            # add the histogram values to the corresponding entry in the time series
             if measure_date in series:
                 assert series[measure_date].shape == numpy.array(measure["values"]).shape, "Shape mismatch: {} cannot be added to {}".format(series[measure_date], measure["values"])
                 series[measure_date] += numpy.array(measure["values"])
@@ -134,8 +138,23 @@ def process_file(filename):
                 series[measure_date] = numpy.array(measure["values"])
             buckets = measure['buckets']
 
-        measure_name = os.path.splitext(os.path.basename(filename))[0] # Filename without extension
-        regressions += compare_histogram(series, measure_name, buckets)
+        measure_name, _ = os.path.splitext(os.path.basename(filename)) # the measure name is the filename without the extension
+
+    if series:
+        # check that the series is valid
+        reference_date, expected_bucket_count = None, None
+        for date, histogram in series.items():
+            if expected_bucket_count is None:
+                reference_date, expected_bucket_count = date, len(histogram)
+            elif len(histogram) != expected_bucket_count:
+                logging.warn(
+                    "BUCKET COUNT MISMATCH - IGNORING HISTOGRAM {} ({} has {} buckets, while {} has {} buckets)".format(
+                        measure_name, reference_date, expected_bucket_count, date, len(histogram)
+                    )
+                )
+                return []
+
+    regressions += compare_histogram(series, measure_name, buckets)
     return regressions
 
 def plot(file_name, histogram_name, buckets, raw_histograms):
@@ -160,13 +179,15 @@ def main():
     global histograms
     regressions = []
 
+    # This is the same Histograms.json as the one in mozilla-central
+    # It should always be the latest possible version when running
     with open("Histograms.json") as f:
         histograms = json.load(f)
 
     #logging.basicConfig(level=logging.DEBUG)
     #process_file('./histograms/FX_TAB_ANIM_ANY_FRAME_INTERVAL_MS.json', regressions)
 
-    # Process all histograms
+    # Process all histograms, detecting and collecting all the regressions found
     for subdir, dirs, files in os.walk('./histograms'):
         for file in files:
             if file.endswith(".json"):

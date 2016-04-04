@@ -5,6 +5,8 @@
 pushd . > /dev/null
 cd "$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 
+ln /dev/null /dev/raw1394 # this is needed to fix the `libdc1394 error: Failed to initialize libdc1394` error from OpenCV, in alert/alert.py
+
 rm -rf ./histograms Histograms.json &&
 wget https://raw.githubusercontent.com/mozilla/gecko-dev/master/toolkit/components/telemetry/Histograms.json -O Histograms.json && # update histogram metadata
 nodejs exporter/export.js && # export histogram evolutions using Telemetry.js to JSON, under `histograms/*.JSON`
