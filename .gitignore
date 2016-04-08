@@ -4,3 +4,4 @@ node_modules/
 dashboard/regressions.json
 Histograms.json
 histograms/
+.vagrant/
