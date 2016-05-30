@@ -25,13 +25,18 @@ var telemetry_versions_filtered = telemetry_inited.then(function() {
 // Load measures
 var measures = null;
 var measures_per_version = null;
+var histogram_definitions = JSON.parse(fs.readFileSync("Histograms.json", "utf8"));
 var telemetry_measures_found = telemetry_versions_filtered.then(function() {
   return Promise.all(versions.map(function(version) {
     return new Promise(function(accept) {
       var parts = version.split("/");
       Telemetry.getFilterOptions(parts[0], parts[1], function(filters) {
         var measureMap = {};
-        filters.metric.forEach(function(measure) { measureMap[measure] = true; })
+        filters.metric.forEach(function(measure) {
+          if (histogram_definitions[measure] && histograms_definitions[measure].keyed != true) {
+            measureMap[measure] = true;
+          }
+        })
         accept(measureMap);
       });
     });
