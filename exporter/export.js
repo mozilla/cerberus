@@ -33,7 +33,7 @@ var telemetry_measures_found = telemetry_versions_filtered.then(function() {
       Telemetry.getFilterOptions(parts[0], parts[1], function(filters) {
         var measureMap = {};
         filters.metric.forEach(function(measure) {
-          if (histogram_definitions[measure] && histograms_definitions[measure].keyed != true) {
+          if (histogram_definitions[measure] && histogram_definitions[measure].keyed != true) {
             measureMap[measure] = true;
           }
         })
