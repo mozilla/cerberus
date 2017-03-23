@@ -176,13 +176,17 @@ def plot(file_name, histogram_name, buckets, raw_histograms):
     pylab.close(fig)
 
 def main():
-    global histograms
     regressions = []
 
     # This is the same Histograms.json as the one in mozilla-central
     # It should always be the latest possible version when running
     with open("Histograms.json") as f:
         histograms = json.load(f)
+
+    with open("Scalars.json") as f:
+        scalars = json.load(f)
+
+    probes = dict(histograms.items() + scalars.items())
 
     #logging.basicConfig(level=logging.DEBUG)
     #process_file('./histograms/FX_TAB_ANIM_ANY_FRAME_INTERVAL_MS.json', regressions)
@@ -222,8 +226,10 @@ def main():
             name = histogram
             if histogram.startswith("STARTUP"):
                 name = histogram[8:]
-            descriptor["description"] = histograms.get(name, {}).get("description", "")
-            descriptor["alert_emails"] = histograms.get(name, {}).get("alert_emails", "")
+
+            probe_def = probes.get(name, {})
+            descriptor["description"] = probe_def.get("description", "")
+            descriptor["alert_emails"] = probe_def.get("alert_emails", probe_def.get("notification_emails", ""))
 
     # Store regressions found
     with open(REGRESSION_FILENAME, 'w') as f:

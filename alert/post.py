@@ -14,9 +14,15 @@ except IOError:
 # Update histogram definitions on the server and update subscriptions
 with open('Histograms.json') as f:
     histograms = json.load(f)
-    for name, description in histograms.iteritems():
-        metric = poster.Metric(name, description['description'], detector)
-        metric.realize()
+
+with open("Scalars.json") as f:
+    scalars = json.load(f)
+
+probes = dict(histograms.items() + scalars.items())
+
+for name, description in probes.iteritems():
+    metric = poster.Metric(name, description['description'], detector)
+    metric.realize()
 
 # Post detected alerts
 with open('dashboard/regressions.json') as f:
