@@ -9,7 +9,7 @@ ln /dev/null /dev/raw1394 # this is needed to fix the `libdc1394 error: Failed t
 
 rm -rf ./histograms Histograms.json Scalars.yaml &&
 
-wget https://raw.githubusercontent.com/mozilla/gecko-dev/master/toolkit/components/telemetry/Histograms.json -O Histograms.json && # update histogram metadata
+wget https://hg.mozilla.org/mozilla-central/raw-file/tip/toolkit/components/telemetry/Histograms.json -O Histograms.json && # update histogram metadata
 wget https://hg.mozilla.org/mozilla-central/raw-file/tip/toolkit/components/telemetry/Scalars.yaml -O Scalars.yaml && # update scalars metadata
 
 nodejs exporter/export.js && # export histogram evolutions using Telemetry.js to JSON, under `histograms/*.JSON`
