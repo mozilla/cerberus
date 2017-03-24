@@ -3,6 +3,7 @@ var Promise       = require('promise');
 var fs            = require('fs');
 var mkdirp        = require('mkdirp');
 var Telemetry     = require('telemetry-next-node');
+var yaml          = require('js-yaml');
 
 // Create output directory
 mkdirp.sync('histograms');
@@ -25,7 +26,24 @@ var telemetry_versions_filtered = telemetry_inited.then(function() {
 // Load measures
 var measures = null;
 var measures_per_version = null;
+
 var histogram_definitions = JSON.parse(fs.readFileSync("Histograms.json", "utf8"));
+var raw_scalar_definitions = yaml.load(fs.readFileSync("Scalars.yaml", "utf8"));
+
+var scalar_definitions = {};
+for (var outer_definition in raw_scalar_definitions) {
+    for (var inner_definition in raw_scalar_definitions[outer_definition]) {
+        scalar_definitions['SCALARS_' + outer_definition.toUpperCase() + '.' + inner_definition.toUpperCase()] = raw_scalar_definitions[outer_definition][inner_definition];
+    }
+}
+
+fs.writeFile("Scalars.json", JSON.stringify(scalar_definitions), "utf-8");
+
+function is_probe_allowed(measure) {
+    return (histogram_definitions[measure] && histogram_definitions[measure].keyed != true) ||
+            (scalar_definitions[measure] && scalar_definitions[measure].keyed != true)
+}
+
 var telemetry_measures_found = telemetry_versions_filtered.then(function() {
   return Promise.all(versions.map(function(version) {
     return new Promise(function(accept) {
@@ -33,7 +51,7 @@ var telemetry_measures_found = telemetry_versions_filtered.then(function() {
       Telemetry.getFilterOptions(parts[0], parts[1], function(filters) {
         var measureMap = {};
         filters.metric.forEach(function(measure) {
-          if (histogram_definitions[measure] && histogram_definitions[measure].keyed != true) {
+          if (is_probe_allowed(measure)) {
             measureMap[measure] = true;
           }
         })
