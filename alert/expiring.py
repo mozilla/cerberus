@@ -86,7 +86,7 @@ Takes data from the RapidRelease page of the Mozilla Wiki. The page is expected 
     (...anything other than a table...)
     (...version table...)
     (...rest of document...)"""
-    response = json.loads(urllib2.urlopen("https://wiki.mozilla.org/api.php?action=parse&format=json&page=RapidRelease/Calendar").read())
+    response = json.loads(urllib2.urlopen("https://wiki.mozilla.org/api.php?action=parse&format=json&page=Release_Management/Calendar").read())
     soup = BeautifulSoup(response["parse"]["text"]["*"])
 
     # scrape for future release date tables
