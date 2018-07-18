@@ -17,11 +17,10 @@ jobs:
       - image: circleci/python:2.7.15-stretch-browsers #
     steps:
       - checkout
-      - run: pip install virtualenv
       - run:
           name: Install Python deps in a venv
           command: |
-            python -m venv venv
+            virtualenv venv
             . venv/bin/activate
             pip install bs4 boto
       - run: python alert/expiring.py test
