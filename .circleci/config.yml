@@ -23,4 +23,4 @@ jobs:
             virtualenv venv
             . venv/bin/activate
             pip install bs4 boto
-      - run: python alert/expiring.py test
+            python alert/expiring.py test
