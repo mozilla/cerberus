@@ -13,15 +13,12 @@ version: 2
 ####################
 
 jobs:
-  test:
+  build:
     machine:
       python:
         version: 2.7.9
-    dependencies:
-      pre:
-        - pip install ansible
-    override:
-      - ansible-playbook ansible/dev.yml
     steps:
       - checkout
+      - run: pip install ansible
+      - run: ansible-playbook ansible/dev.yml
       - run: python alert/expiring.py test
