@@ -17,6 +17,7 @@ jobs:
       - image: circleci/python:2.7.15-stretch-browsers #
     steps:
       - checkout
+      - run: pip install venv
       - run:
           name: Install Python deps in a venv
           command: |
