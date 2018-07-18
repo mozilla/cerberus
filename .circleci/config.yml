@@ -1,18 +1,18 @@
-####################
+#########################################################
 # CircleCI configuration reference:
 #   https://circleci.com/docs/2.0/configuration-reference
-####################
+#########################################################
 #
 # This file currently only tests for expiration!
 
 version: 2
 
-####################
+#####################################################
 # Jobs: see https://circleci.com/docs/2.0/jobs-steps/
-####################
+#####################################################
 
 jobs:
-  build:
+  test:
     docker: # run the steps with Docker
       - image: circleci/python:2.7.15-stretch-browsers
     steps:
@@ -24,3 +24,19 @@ jobs:
             . venv/bin/activate
             pip install bs4 boto html5lib
             python alert/expiring.py test
+
+workflows:
+  version: 2
+  commit:
+    jobs:
+      - test
+  nightly:
+    triggers:
+      - schedule:
+          cron: "0 0 * * *"
+          filters:
+            branches:
+              only:
+                - master
+    jobs:
+      - test
