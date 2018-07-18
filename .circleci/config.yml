@@ -19,6 +19,5 @@ jobs:
         version: 2.7.9
     steps:
       - checkout
-      - run: pip install ansible
-      - run: ansible-playbook ansible/dev.yml
+      - run: pip install bs4
       - run: python alert/expiring.py test
