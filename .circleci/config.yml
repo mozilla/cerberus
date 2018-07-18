@@ -14,7 +14,7 @@ version: 2
 jobs:
   build:
     docker: # run the steps with Docker
-      - image: circleci/python:2.7.9 #
+      - image: circleci/python:2 #
     steps:
       - checkout
       - run: pip install bs4 boto
