@@ -17,5 +17,10 @@ jobs:
       - image: circleci/python:2 #
     steps:
       - checkout
-      - run: pip install bs4 boto
+      - run:
+          name: Install Python deps in a venv
+          command: |
+            python -m venv venv
+            . venv/bin/activate
+            pip install bs4 boto
       - run: python alert/expiring.py test
