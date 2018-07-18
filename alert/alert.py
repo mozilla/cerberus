@@ -132,7 +132,9 @@ def process_file(filename):
 
             # add the histogram values to the corresponding entry in the time series
             if measure_date in series:
-                assert series[measure_date].shape == numpy.array(measure["values"]).shape, "Shape mismatch: {} cannot be added to {}".format(series[measure_date], measure["values"])
+                if series[measure_date].shape != numpy.array(measure["values"]).shape:
+                    print "Shape mismatch in {}: {} cannot be added to {}".format(filename, series[measure_date], measure["values"])
+                    continue
                 series[measure_date] += numpy.array(measure["values"])
             else:
                 series[measure_date] = numpy.array(measure["values"])
