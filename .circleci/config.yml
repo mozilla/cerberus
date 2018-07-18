@@ -1,0 +1,26 @@
+####################
+# CircleCI configuration reference:
+#   https://circleci.com/docs/2.0/configuration-reference
+####################
+#
+# This file currently only tests for expiration!
+
+version: 2
+
+####################
+# Jobs: see https://circleci.com/docs/2.0/jobs-steps/
+####################
+
+jobs:
+  build:
+    docker: # run the steps with Docker
+      - image: circleci/python:2.7.15-stretch-browsers
+    steps:
+      - checkout
+      - run:
+          name: Install Python deps and run tests in a venv
+          command: |
+            virtualenv venv
+            . venv/bin/activate
+            pip install bs4 boto html5lib
+            python alert/expiring.py test
