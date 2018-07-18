@@ -1,4 +1,4 @@
-cerberus
+cerberus [![CircleCI](https://circleci.com/gh/mozilla/cerberus.svg?style=svg)](https://circleci.com/gh/mozilla/cerberus)
 ========
 
 Automatic [alert system](http://mozilla.github.io/cerberus/dashboard/) for [telemetry](http://telemetry.mozilla.org/) histograms.
