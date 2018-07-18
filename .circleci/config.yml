@@ -7,6 +7,7 @@
 
 version: 2
 
+
 ####################
 # Jobs: see https://circleci.com/docs/2.0/jobs-steps/
 ####################
@@ -16,6 +17,11 @@ jobs:
     machine:
       python:
         version: 2.7.9
+    dependencies:
+      pre:
+        - pip install ansible
+    override:
+      - run: ansible-playbook ansible/dev.yml
     steps:
       - checkout
       - run: python alert/expiring.py test
