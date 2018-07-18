@@ -3,13 +3,9 @@
 #   https://circleci.com/docs/2.0/configuration-reference
 ####################
 #
-# This file currently only tests for expiration
+# This file currently only tests for expiration!
 
 version: 2
-
-machine:
-  python: 
-    version: 2.7.9
 
 ####################
 # Jobs: see https://circleci.com/docs/2.0/jobs-steps/
@@ -17,9 +13,8 @@ machine:
 
 jobs:
   build:
-    machine: True
-      python: 
-        version: 2.7.9
+    docker: # run the steps with Docker
+      - image: circleci/python:2.7.9 #
     steps:
       - checkout
       - run: pip install bs4 boto
