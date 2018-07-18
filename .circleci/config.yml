@@ -7,16 +7,15 @@
 
 version: 2
 
-machine:
-      post:
-        - pyenv global 2.7.9 # The server runs this version
-
 ####################
 # Jobs: see https://circleci.com/docs/2.0/jobs-steps/
 ####################
 
 jobs:
   build:
+    machine:
+      python:
+        version: 2.7.9
     steps:
       - checkout
       - run: python alert/expiring.py test
