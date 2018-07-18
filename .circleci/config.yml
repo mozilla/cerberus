@@ -7,6 +7,9 @@
 
 version: 2
 
+machine:
+  python: 
+    version: 2.7.9
 
 ####################
 # Jobs: see https://circleci.com/docs/2.0/jobs-steps/
@@ -14,10 +17,10 @@ version: 2
 
 jobs:
   build:
-    machine:
-      python:
+    machine: True
+      python: 
         version: 2.7.9
     steps:
       - checkout
-      - run: pip install bs4
+      - run: pip install bs4 boto
       - run: python alert/expiring.py test
