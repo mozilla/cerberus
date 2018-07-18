@@ -1,0 +1,22 @@
+####################
+# CircleCI configuration reference:
+#   https://circleci.com/docs/2.0/configuration-reference
+####################
+#
+# This file currently only tests for expiration
+
+version: 2
+
+
+####################
+# Jobs: see https://circleci.com/docs/2.0/jobs-steps/
+####################
+
+jobs:
+  test:
+    machine:
+      post:
+        - pyenv global 2.7.9 # The server runs this version
+    steps:
+      - checkout
+      - run: python alert/expiring.py test
