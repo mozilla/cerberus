@@ -25,6 +25,10 @@ jobs:
             pip install bs4 boto html5lib
             python alert/expiring.py test
 
+#########################################################
+# Workflows: see https://circleci.com/docs/2.0/workflows/
+#########################################################
+
 workflows:
   version: 2
   commit:
