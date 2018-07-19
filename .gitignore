@@ -3,5 +3,7 @@ node_modules/
 *.pyo
 dashboard/regressions.json
 Histograms.json
+Scalars.json
+Scalars.yaml
 histograms/
 .vagrant/
