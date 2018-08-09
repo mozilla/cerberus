@@ -46,7 +46,12 @@ The table is expected to be in the following form:
         fields = list(row.find_all("td"))
         if len(fields) < 4: continue # not enough fields in the row, probably a header row
         is_valid = True
-        for field in fields[-4:]: # ensure that each column represents a Firefox version
+        for i in xrange(4): # ensure that each column represents a Firefox version
+            field = fields[i]
+            if field.find("a") is not None:
+                # replace the cell with the hyperlink field
+                field = field.find("a")
+                fields[i] = field
             if "Firefox" not in field.string:
                 is_valid = False
                 break

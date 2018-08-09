@@ -40,7 +40,8 @@ def version_add_major(version, amount = 1):
     return ".".join(part_to_string(part) for part in version_parts)
 
 def version_get_major(version):
-    return parse_part(version.strip().split(".")[0])[0]
+    versions = version.strip().split(";")
+    return parse_part(versions[-1].strip().split(".")[0])[0]
 
 def version_normalize_nightly(version):
     version_parts = list(map(parse_part, version.strip().split(".")))
@@ -95,6 +96,7 @@ if __name__ == "__main__":
     assert version_get_major("42.0a1") == 42
     assert version_get_major("42.0a1b") == 42
     assert version_get_major("1a2b.3c4d.5e6f") == 1
+    assert version_get_major("52.9; 60.1") == 60
     assert version_normalize_nightly("42") == "42.0a1"
     assert version_normalize_nightly("42.0") == "42.0a1"
     assert version_normalize_nightly("42.0a") == "42.0a"
