@@ -24,6 +24,7 @@ jobs:
             . venv/bin/activate
             pip install bs4 boto html5lib
             python alert/expiring.py test
+            python alert/mozilla_versions.py
 
 #########################################################
 # Workflows: see https://circleci.com/docs/2.0/workflows/
