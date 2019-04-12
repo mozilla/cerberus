@@ -1,7 +1,7 @@
 cerberus [![CircleCI](https://circleci.com/gh/mozilla/cerberus.svg?style=svg)](https://circleci.com/gh/mozilla/cerberus)
 ========
 
-Automatic [alert system](http://mozilla.github.io/cerberus/dashboard/) for [telemetry](http://telemetry.mozilla.org/) histograms.
+Automatic [alert system](https://alerts.telemetry.mozilla.org) for [telemetry](https://telemetry.mozilla.org/) histograms.
 
 Cerberus detects changes in the distribution of histograms (histogram regressions), and posts alerts for these to the [medusa](https://github.com/mozilla/medusa) alert service.
 
